@@ -42,6 +42,7 @@ def convert_locations_to_mask(samples_locations, img_size):
     -------
         mask: np.ndarray, {0,1} 2D matrix
     """
+    samples_locations = samples_locations.astype('float')
     samples_locations += 0.5
     samples_locations *= img_size
     samples_locations = samples_locations.astype('int')
