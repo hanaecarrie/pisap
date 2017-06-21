@@ -16,9 +16,6 @@ NB_SCALES = [2, 3, 4]
 EPS = 1.0e-10
 
 
-#XXX np.testing.assert_allclose( ,equal_nan=False) do not raise any AssertionError on NaN...
-
-
 class TestAnalysisSynthesis(unittest.TestCase):
 
     def test_linearWaveletTransformATrousAlgorithm(self):
