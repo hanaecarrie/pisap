@@ -74,7 +74,7 @@ class GradBase(object):
         raise NotImplementedError("'GradBase' is an abstract class: " \
                                     +   "it should not be instanciated")
 
-    def get_spec_rad(self, tolerance=1e-8, max_iter=100, coef_mul=1.1):
+    def get_spec_rad(self, tolerance=1e-4, max_iter=20, coef_mul=1.1):
         """ Get spectral radius.
 
         This method calculates the spectral radius.
@@ -141,7 +141,7 @@ class GradBase(object):
 
         Calculates M^T (MX - Y)
         """
-        self.grad = self.MtX(self.MX(x) - self.y)
+        self.grad = self.MtX(self.MX(x) - self.y) # self.y can be a 2D array or a vector
 
 
 class Grad2DSynthese(GradBase):
@@ -153,16 +153,14 @@ class Grad2DSynthese(GradBase):
     ----------
     data : np.ndarray
         Input data array, an array of 2D observed images (i.e. with noise)
-    mask :  np.ndarray
-        The subsampling mask.
+    ft_cls :  Fourier operator derive from base class 'FourierBase'
+        Fourier class, for computing Fourier transform (NFFT or FFT)
     """
-    def __init__(self, data, mask):
+    def __init__(self, data, ft_cls):
         """ Initilize the Grad2DSynthese class.
         """
         self.y = data
-        self.mask = mask
-        if mask is None:
-            self.mask = np.ones(data.shape, dtype=int)
+        self.ft_cls = ft_cls
         self.get_spec_rad()
 
     def get_initial_x(self):
@@ -170,7 +168,7 @@ class Grad2DSynthese(GradBase):
 
         This method sets the initial value of x to an arrray of random values
         """
-        return np.random.random(self.y.shape).astype(np.complex)
+        return np.random.random((self.ft_cls.img_size,self.ft_cls.img_size)).astype(np.complex)
 
     def MX(self, x):
         """ MX
@@ -187,7 +185,7 @@ class Grad2DSynthese(GradBase):
         -------
         np.ndarray result
         """
-        return self.mask * pfft.fft2(x)
+        return self.ft_cls.op(x)
 
     def MtX(self, x):
         """ MtX
@@ -204,7 +202,7 @@ class Grad2DSynthese(GradBase):
         -------
         np.ndarray result
         """
-        return pfft.ifft2(self.mask * x)
+        return self.ft_cls.adj_op(x)
 
 
 class Grad2DAnalyse(GradBase):
@@ -216,19 +214,17 @@ class Grad2DAnalyse(GradBase):
     ----------
     data : np.ndarray
         Input data array, an array of 2D observed images (i.e. with noise)
-    mask :  np.ndarray
-        The subsampling mask.
+    ft_cls :  Fourier operator derive from base class 'FourierBase'
+        Fourier class, for computing Fourier transform (NFFT or FFT)
     linear_cls: class
         a linear operator class.
     """
-    def __init__(self, data, mask, linear_cls):
+    def __init__(self, data, ft_cls, linear_cls):
         """ Initilize the Grad2DAnalyse class.
         """
         self.y = data
-        self.mask = mask
+        self.ft_cls = ft_cls
         self.linear_cls = linear_cls
-        if mask is None:
-            self.mask = np.ones(data.shape, dtype=int)
         self.get_spec_rad()
 
     def get_initial_x(self):
@@ -236,7 +232,7 @@ class Grad2DAnalyse(GradBase):
 
         This method sets the initial value of x to an arrray of random values
         """
-        fake_data = np.zeros(self.y.shape).astype(np.complex)
+        fake_data = np.zeros((self.ft_cls.img_size, self.ft_cls.img_size)).astype(np.complex)
         trf = self.linear_cls.op(fake_data)
         trf._data = np.random.random(len(trf._data)).astype(np.complex)
         return trf
@@ -256,7 +252,7 @@ class Grad2DAnalyse(GradBase):
         -------
         np.ndarray result recovered 2D kspace
         """
-        return self.mask * pfft.fft2(self.linear_cls.adj_op(alpha))
+        return self.ft_cls.op(self.linear_cls.adj_op(alpha))
 
     def MtX(self, x):
         """ MtX
@@ -274,4 +270,4 @@ class Grad2DAnalyse(GradBase):
         -------
         DictionaryBase result
         """
-        return self.linear_cls.op(pfft.ifft2(self.mask * x))
+        return self.linear_cls.op(self.ft_cls.adj_op(x))

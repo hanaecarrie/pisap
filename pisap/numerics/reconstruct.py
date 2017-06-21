@@ -271,7 +271,6 @@ def sparse_rec_fista(
         print("Starting FISTA reconstruction algorithm.")
         print("argmin_alpha |Ft*L*alpha - y|_2^2 + mu * |alpha|_1")
         linear_op = linear_cls(**linear_kwargs)
-        print("The linear op used:\n{0}".format(linear_op.op(np.zeros(data.shape))))
 
     # Define the linear operator
     linear_op = linear_cls(**linear_kwargs)
@@ -284,7 +283,8 @@ def sparse_rec_fista(
     lipschitz_cst = grad_op.spec_rad
 
     # Define initial primal and dual solutions
-    x_init = np.zeros(data.shape, dtype=np.complex) # grad_op.MtX(data)
+    shape = (grad_op.ft_cls.img_size, grad_op.ft_cls.img_size)
+    x_init = np.zeros(shape, dtype=np.complex) # grad_op.MtX(data)
     alpha = linear_op.op(x_init)
     alpha.set_constant_values(values=0.)
     if verbose > 0:
