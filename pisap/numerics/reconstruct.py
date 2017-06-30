@@ -13,6 +13,7 @@ from __future__ import print_function
 import numpy as np
 import time
 import copy
+import pickle
 from scipy.linalg import norm
 
 # Package import
@@ -32,9 +33,9 @@ from .noise import sigma_mad_sparse
 
 def sparse_rec_condat_vu(
         data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
-        std_est=None, std_est_method="image", std_thr=2., tau=None, sigma=None,
-        relaxation_factor=0.5, nb_of_reweights=1, max_nb_of_iter=150,
-        add_positivity=True, atol=1e-4, verbose=0):
+        std_est=None, std_est_method=None, std_thr=2., mu=1.0e-6, tau=None,
+        sigma=None, relaxation_factor=1.0, nb_of_reweights=1, max_nb_of_iter=150,
+        add_positivity=False, atol=1e-4, verbose=0, report=True):
     """ The Condat-Vu sparse reconstruction with reweightings.
 
     Parameters
@@ -74,14 +75,15 @@ def sparse_rec_condat_vu(
     max_nb_of_iter: int (optional, default 150)
         the maximum number of iterations in the Condat-Vu proximal-dual
         splitting algorithm.
-    add_positivity: bool (optional, default True)
+    add_positivity: bool (optional, default False)
         by setting this option, set the proximity operator to identity or
         positive.
     atol: float (optional, default 1e-4)
         tolerance threshold for convergence.
     verbose: int (optional, default 0)
         the verbosity level.
-
+    report: bool (optional, default True)
+        if true generate a pickle report file
     Returns
     -------
     x_final: Image
@@ -233,8 +235,25 @@ def sparse_rec_condat_vu(
 
     # Finish message
     end = time.clock()
+
+    if report:
+        filename = "condat_report_" + time.strftime("%m_%d__%H_%M_%S") + ".pkl"
+        to_dump = {'nb_iter': max_nb_of_iter,
+                   'mu': mu,
+                   'cost_list': np.array(cost_op.cost_list),
+                   'regu_list': np.array(cost_op.regu_list),
+                   'res_list': np.array(cost_op.res_list),
+                   'x':opt.x_final,
+                   'y':opt.y_final,
+                   'x_':linear_op.adj_op(opt.y_final),
+                   'y_':linear_op.op(opt.x_final),
+                   'data': data,
+                   }
+        with open(filename, "wb") as pfile:
+            pickle.dump(to_dump, pfile)
+
     if verbose > 0:
-        cost_op.plot_cost()
+        #cost_op.plot_cost()
         print("-" * 20)
         print(" - Final iteration number: ", cost_op.iteration)
         print(" - Final log10 cost value: ", np.log10(cost_op.cost))
@@ -246,7 +265,8 @@ def sparse_rec_condat_vu(
 
 def sparse_rec_fista(
         data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
-        mu, lambda_init=1.0, max_nb_of_iter=300, atol=1e-4, verbose=0):
+        mu, lambda_init=1.0, max_nb_of_iter=300, atol=1e-4, verbose=0,
+        report=True):
 
     """ The Condat-Vu sparse reconstruction with reweightings.
 
@@ -274,6 +294,8 @@ def sparse_rec_fista(
         tolerance threshold for convergence.
     verbose: int (optional, default 0)
         the verbosity level.
+    report: bool (optional, default True)
+        if true generate a pickle report file
 
     Returns
     -------
@@ -344,8 +366,23 @@ def sparse_rec_fista(
 
     # Finish message
     end = time.clock()
+
+    if report:
+        filename = "fista_report_" + time.strftime("%m_%d__%H_%M_%S") + ".pkl"
+        to_dump = {'delta'
+                   'nb_iter': max_nb_of_iter,
+                   'mu': mu,
+                   'cost_list': np.array(cost_op.cost_list),
+                   'regu_list': np.array(cost_op.regu_list),
+                   'res_list': np.array(cost_op.res_list),
+                   'x':linear_op.adj_op(opt.x_final),
+                   'data': data,
+                   }
+        with open(filename, "wb") as pfile:
+            pickle.dump(to_dump, pfile)
+
     if verbose > 0:
-        cost_op.plot_cost()
+        #cost_op.plot_cost()
         print("-" * 20)
         print(" - Final iteration number: ", cost_op.iteration)
         print(" - Final log10 cost value: ", np.log10(cost_op.cost))
