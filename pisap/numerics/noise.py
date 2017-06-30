@@ -78,10 +78,8 @@ def soft_thresholding(data, level):
     -------
     np.ndarray thresholded data
     """
-    num = np.copy(data)
-    num = np.maximum(np.abs(num) - level, 0)
-    deno = num + level
-    return (num / deno) * data
+    num = np.maximum(np.abs(np.copy(data)) - level, 0)
+    return (num / (num + level)) * data
 
 
 def hard_thresholding(data, level):

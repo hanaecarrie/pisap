@@ -166,7 +166,7 @@ def sparse_rec_condat_vu(
         print("-" * 20)
 
     # Define initial primal and dual solutions
-    primal = np.zeros(data.shape, dtype=np.complex) # grad_op.MtX(data)
+    primal = np.zeros(data.shape, dtype=np.complex)
     dual = linear_op.op(primal)
     dual.set_constant_values(values=0.0)
 

@@ -45,7 +45,7 @@ class bsplineWaveletTransformATrousAlgorithm(Dictionary):
     def _trf_id(self):
         nb_scale = self.metadata['nb_scale']
         # name
-        name = "linear wavelet transform: a trous algorithm"
+        name = "bspline wavelet transform: a trous algorithm"
         # bands_names
         bands_names = 'a'
         # nb_band_per_scale
@@ -518,7 +518,7 @@ class haarWaveletTransform(Dictionary):
     def _trf_id(self):
         nb_scale = self.metadata['nb_scale']
         # name
-        name = "linear wavelet transform: a trous algorithm"
+        name = "Haar's wavelet transform"
         # bands_names
         bands_names = 'v', 'd', 'h'
         # nb_band_per_scale

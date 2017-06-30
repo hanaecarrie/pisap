@@ -252,7 +252,7 @@ class DictionaryBase(object):
                 cpy._data = cpy._data.astype(np.complex)
             cpy._data = cpy._data * coef._data
         else:
-            raise ValueError("Wrong format of 'other': __mul__ only "
+            raise ValueError("'coef' type is {0} but __mul__ only ".format(type(coef))
                        + "accept numerics, list of numerics or DictionaryBase")
         return cpy
 
@@ -309,13 +309,15 @@ class DictionaryBase(object):
         """
         tmp = """{0} :
         native_image_shape: {1}
-        nb_scale: {2}
-        nb_bands: {3}
-        nb_band_per_scale: {4}
-        bands_names: {5}
-        data_len: {6}
+        bands_shapes: {2}
+        nb_scale: {3}
+        nb_bands: {4}
+        nb_band_per_scale: {5}
+        bands_names: {6}
+        data_len: {7}
         """.format(self.name,
                    self.native_image_shape,
+                   self.bands_shapes,
                    self.nb_scale,
                    self.nb_band_per_scale.sum(),
                    self.nb_band_per_scale,
