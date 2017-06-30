@@ -14,10 +14,12 @@ import copy
 import numbers
 import numpy as np
 import matplotlib.pyplot as plt
+import pywt
 
 import pisap
 from pisap.base.formating import FLATTENING_FCTS, INFLATING_FCTS
-from pisap.base.utils import to_2d_array, isapproof_mkdtemp
+from pisap.base.utils import to_2d_array, isapproof_mkdtemp, pywt_coef_is_cplx, \
+                             pywt_coef_cplx_sep, to_complex_pywt_wavelet
 
 
 ####
@@ -33,9 +35,9 @@ class DictionaryBase(object):
     and dictionnary transform classes.
     """
 
-    def __init__(self, data=None, name=None, id_formating=None, is_decimated=None,
-                 bands_names=None, nb_scale=None, nb_band_per_scale=None,
-                 bands_lengths=None, bands_shapes=None):
+    def __init__(self, data=None, name=None, id_formating=None, id_trf=None,
+                 is_decimated=None, bands_names=None, nb_scale=None,
+                 nb_band_per_scale=None, bands_lengths=None, bands_shapes=None):
         """ Initialize the DictionaryBase class.
 
         Parameters
@@ -46,6 +48,7 @@ class DictionaryBase(object):
 
         id_formating: int, the id of the formating function to use in 'from_cube',
             see pisap/base/formating.py for more details.
+        id_trf: int, ISAP id of the transformation
 
         is_decimated: bool, True if the decomposition include an decimation of the
             band number of coefficients.
@@ -73,6 +76,7 @@ class DictionaryBase(object):
         self.is_decimated = is_decimated
         self.isap_trf_header = None
         self.id_formating = id_formating
+        self.id_trf = id_trf
 
         self._data = data.flatten()
         self.native_image_shape = data.shape
@@ -728,6 +732,7 @@ class Dictionary(object):
         self.metadata['bands_shapes'] = bands_shapes
         self.metadata['id_formating'] = id_formating
         self.metadata['is_decimated'] = is_decimated
+        self.metadata['id_trf'] = id_trf
         self.isap_kwargs["type_of_multiresolution_transform"] = id_trf
         self.isap_kwargs["write_all_bands"] = False
         self.isap_kwargs["write_all_bands_with_block_interp"] = False
@@ -804,3 +809,108 @@ class Dictionary(object):
 
         # Compute the L2 norm
         return np.linalg.norm(data)
+
+
+####
+## PYWAVELET BACK-END CLASS
+
+
+class PywtDictionaryBase(DictionaryBase):
+    """ DictionaryBase with pywavelet back-end.
+    """
+
+    def _analysis(self, data, **kwargs):
+        """ Helper to decompose on the dictionnary atoms.
+
+        Parameters
+        ----------
+        kwargs: dict, the parameters that will be passed to
+            'pisap.extensions.mr_tansform'.
+        """
+        # here self.id_formating hold "haar" (for example)
+        # return list of tuple
+        return pywt.wavedec2(data, self.id_trf, level=self.nb_scale-1)
+
+    def analysis(self, **kwargs):
+        """ Decompose on the dictionnary atoms.
+
+        Parameters
+        ----------
+        kwargs: dict, the parameters that will be passed to
+            'pisap.extensions.mr_tansform'.
+        """
+        if self.is_complex:
+            data = self._data.real.reshape(self.native_image_shape)
+            cube_r = self._analysis(data, **kwargs)
+            data = self._data.imag.reshape(self.native_image_shape)
+            cube_i = self._analysis(data, **kwargs)
+            cube = to_complex_pywt_wavelet(cube_r, cube_i)
+            self.from_cube(cube)
+        else:
+            data = self._data.reshape(self.native_image_shape).astype(float)
+            self.from_cube(self._analysis(data, **kwargs))
+
+    def _synthesis(self, cube):
+        """ Helper to reconstruct the image the vector data.
+
+        Returns
+        -------
+        image: np.ndarray
+            the reconsructed image.
+        """
+        # here self.id_formating hold "haar" (for example)
+        # return list of tuple
+        return pywt.waverec2(cube, self.id_trf)
+
+    def synthesis(self):
+        """ Reconstruct the image the vector data.
+
+        Returns
+        -------
+        image: pisap.Image
+            the reconsructed image.
+        """
+        cube = self.to_cube() # cube here is a list of tuple
+        if pywt_coef_is_cplx(cube):
+            cube_r, cube_i = pywt_coef_cplx_sep(cube)
+            img_r = self._synthesis(cube_r)
+            img_i = self._synthesis(cube_i)
+            return pisap.Image(data=img_r+1.j*img_i,
+                               metadata=self.isap_trf_header)
+        else:
+            return pisap.Image(data=self._synthesis(cube),
+                               metadata=self.isap_trf_header)
+
+
+class PywtDictionary(Dictionary):
+    """ Dictionary class with pywavelet back-end.
+
+    This abstract class defines a generic container to define a decomposition
+    on the atoms of this dictionnary.
+    """
+
+    def __init__(self, **kwargs):
+        """ Initialize the Dictionary class.
+        """
+        self.metadata = {'nb_scale': kwargs['maxscale']-1}
+        self.isap_kwargs = kwargs
+
+    def op(self, data):
+        """ Operator.
+
+        This method returns the input data convolved with the dictionnary filter.
+
+        Parameters
+        ----------
+        data : np.ndarray
+            Input data array, a 2D image.
+
+        Returns
+        -------
+        np.ndarray wavelet convolved data.
+        """
+        self.data = data
+        self._late_init()
+        trf = PywtDictionaryBase(data=data, **self.metadata)
+        trf.analysis(**self.isap_kwargs)
+        return trf

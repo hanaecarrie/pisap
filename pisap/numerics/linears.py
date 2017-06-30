@@ -9,7 +9,7 @@
 This module contains linears operators classes.
 """
 import numpy as np
-from pisap.base.dictionary import Dictionary
+from pisap.base.dictionary import Dictionary, PywtDictionary
 from pisap.base.utils import set_bands_shapes, get_curvelet_bands_shapes
 
 
@@ -914,5 +914,37 @@ class onLine4_4AndOnColumn5_3(Dictionary):
         id_formating = 0
         # is decimated
         is_decimated = False
+        return name, bands_names, nb_band_per_scale, bands_lengths, \
+               bands_shapes, id_trf, id_formating, is_decimated
+
+
+class PywtHaarWaveletTransform(PywtDictionary):
+    """ Haar's wavelet transform.
+    """
+    def _trf_id(self):
+        # ISAP vs pyWavelet count
+        nb_scale = self.metadata['nb_scale']
+        # name
+        name = "pyWavelet Haar's wavelet transform"
+        # bands_names
+        bands_names = 'v', 'd', 'h'
+        # nb_band_per_scale
+        nb_band_per_scale = np.array([3] * (nb_scale) + [1])
+        # bands_lengths
+        nx, _ = self.data.shape
+        bands_lengths = nx * np.ones((nb_scale, 3), dtype=int)
+        bands_lengths[-1,1:] = 0
+        for i, scale in enumerate(bands_lengths):
+            scale /= 2**(i+1)
+        bands_lengths[-1,:] *= 2
+        bands_lengths = (bands_lengths**2).astype(int)
+        # bands_shapes
+        bands_shapes = set_bands_shapes(bands_lengths)
+        # idx tdf
+        id_trf = "haar"
+        # type of from_cube
+        id_formating = -1
+        # is decimated
+        is_decimated = True
         return name, bands_names, nb_band_per_scale, bands_lengths, \
                bands_shapes, id_trf, id_formating, is_decimated

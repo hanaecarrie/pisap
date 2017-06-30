@@ -16,6 +16,40 @@ import cv2
 import pisap
 
 
+def to_complex_pywt_wavelet(cube_r, cube_i):
+    """ merge two real pywt wavelet to one complex.
+    """
+    cube = [cube_r[0] + 1.j * cube_i[0]]
+    for ks in range(1, len(cube_r)):
+        tmp = []
+        tmp.append(cube_r[ks][0] + 1.j * cube_i[ks][0])
+        tmp.append(cube_r[ks][1] + 1.j * cube_i[ks][1])
+        tmp.append(cube_r[ks][2] + 1.j * cube_i[ks][2])
+        cube.append(tuple(tmp))
+    return cube
+
+
+def pywt_coef_is_cplx(cube):
+    """ Return True if any of the coef in a pywavelet wavelet coefs is complex.
+    """
+    res = np.iscomplex(cube[0]).any()
+    for scale in cube[1:]:
+        res = res or any([np.iscomplex(band).any() for band in scale])
+    return res
+
+
+def pywt_coef_cplx_sep(cube):
+    """ Separate the pywavelet wavelet complex coefs in two pywavelet wavelet
+        coefs: real and imaginary part.
+    """
+    cube_r = [cube[0].real]
+    cube_i = [cube[0].imag]
+    for scale in cube[1:]:
+        cube_r.append(tuple([band.real for band in scale]))
+        cube_i.append(tuple([band.imag for band in scale]))
+    return cube_r, cube_i
+
+
 def generic_l2_norm(x):
     """ Compute the L2 norm for the given input.
 
