@@ -125,6 +125,7 @@ class ForwardBackward(FISTA):
         FISTA.__init__(self, lambda_init, use_fista)
         self.x_old = x
         self.z_old = copy.deepcopy(self.x_old)
+        self.z_new = copy.deepcopy(self.z_old)
         self.grad = grad
         self.prox = prox
         self.cost_func = cost
@@ -142,12 +143,17 @@ class ForwardBackward(FISTA):
         -----
         Implements algorithm 10.7 (or 10.5) from B2010
         """
+        # Test cost function for convergence.
+        if self.cost_func is not None:
+            # deactivate early-stopping
+            self.cost_func.get_cost(self.z_new)
+
         # Step 1 from alg.10.7.
         self.grad.get_grad(self.z_old)
         y_old = self.z_old - self.grad.inv_spec_rad * self.grad.grad
 
         # Step 2 from alg.10.7.
-        self.x_new = self.prox.op(y_old)
+        self.x_new = self.prox.op(y_old, extra_factor=self.grad.inv_spec_rad)
 
         # Steps 3 and 4 from alg.10.7.
         self.speed_up()
@@ -162,11 +168,6 @@ class ForwardBackward(FISTA):
         # Update parameter values for next iteration.
         if not isinstance(self.lambda_update, type(None)):
             self.lambda_now = self.lambda_update(self.lambda_now)
-
-        # Test cost function for convergence.
-        if not isinstance(self.cost_func, type(None)):
-            self.cost_func.get_cost(self.z_new) # deactivate early-stopping
-
 
     def iterate(self, max_iter=150):
         """ Iterate
@@ -348,6 +349,7 @@ class Condat():
                  rho,  sigma, tau, rho_update=None, sigma_update=None,
                  tau_update=None, extra_factor_update=None, auto_iterate=False):
         self.x_old = x
+        self.x_new = np.copy(self.x_old)
         self.y_old = y
         self.grad = grad
         self.prox = prox
@@ -398,6 +400,10 @@ class Condat():
         -----
         Implements equation 9 (algorithm 3.1) from C2013
         """
+        # Test cost function for convergence.
+        if self.cost_func is not None:
+            self.cost_func.get_cost(self.x_new) # deactivate early-stopping
+
         # Update parameter values for next iteration.
         self.grad.get_grad(self.x_old)
         self.update_param()
@@ -420,10 +426,6 @@ class Condat():
         # Update old values for next iteration.
         np.copyto(self.x_old, self.x_new)
         self.y_old = copy.deepcopy(self.y_new)
-
-        # Test cost function for convergence.
-        if not isinstance(self.cost_func, type(None)):
-            self.cost_func.get_cost(self.x_new) # deactivate early-stopping
 
     def iterate(self, max_iter=150):
         """ Iterate

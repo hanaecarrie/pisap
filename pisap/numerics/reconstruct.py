@@ -174,21 +174,19 @@ def sparse_rec_condat_vu(
     else:
         prox_op = Identity()
 
-    # Define the proximity dual operator
-    prox_dual_op = SoftThreshold(reweight_op.weights)
-
     # Define the cost operator
     cost_op = costFunction(
         y=data,
         grad=grad_op,
         wavelet=linear_op,
-        weights=reweight_op.weights,
-        lambda_reg=None,
-        mode="sparse",
+        weights=levels,
+        lambda_reg=mu,
+        mode="lasso",
         window=2,
         print_cost=verbose > 0,
         tolerance=atol,
-        positivity=add_positivity)
+        output="plot_condat.jpg",
+        positivity=False)
 
     # Define the Condat-Vu optimization method
     opt = Condat(
@@ -320,11 +318,12 @@ def sparse_rec_fista(
     cost_op = costFunction(
         y=data,
         grad=grad_op,
-        wavelet=linear_op,
+        wavelet=Identity(),
         weights=weights,
         lambda_reg=mu,
         mode="lasso",
         window=2,
+        output="cost_fista.jpg",
         print_cost=verbose > 0,
         tolerance=atol,
         positivity=False)

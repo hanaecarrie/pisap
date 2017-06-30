@@ -18,11 +18,13 @@ This module contains classes of different cost functions for optimization.
 # System import
 from __future__ import print_function
 import numpy as np
+import os.path as osp
+import pickle
 
 # Package import
 from pisap.plotting import plot_cost
 from pisap.base.dictionary import DictionaryBase
-
+from pisap.base.utils import generic_l1_norm
 
 class costFunction():
     """ Cost function class
@@ -68,8 +70,12 @@ class costFunction():
         self.mode = mode
         self.positivity = positivity
         self.update_weights(weights)
-        self.cost = 1e6
+        self.cost = -1
+        self.regu = -1
+        self.res = -1
         self.cost_list = []
+        self.res_list = []
+        self.regu_list = []
         self.x_list = []
         self.tolerance = tolerance
         self.print_cost = print_cost
@@ -128,14 +134,15 @@ class costFunction():
 
         """
         if isinstance(x, DictionaryBase):
-            y = self.weights * (x)
+            y = x
             l1_norm = np.sum(y.absolute.to_cube()).real
         elif isinstance(x, np.ndarray):
-            np.sum(y.absolute._data)
+            y = x.flatten()
+            l1_norm = np.sum(np.abs(y))
         else:
             raise TypeError("l1norm can only be compute on DictionaryBase or np.ndarray")
         if self.print_cost:
-            print(" - L1 NORM: ", l1_norm)
+            print("  - l1 norm: ", l1_norm)
         return l1_norm
 
     def nucnorm(self, x):
@@ -157,7 +164,7 @@ class costFunction():
         x_prime = cube2matrix(x)
         nuc_norm = nuclear_norm(x_prime)
         if self.print_cost:
-            print(" - NUCLEAR NORM: ", nuc_norm)
+            print(" - nuclear norm: ", nuc_norm)
         return nuc_norm
 
     def check_cost(self, x):
@@ -194,7 +201,7 @@ class costFunction():
             test = (np.linalg.norm(t1 - t2) / np.linalg.norm(t1))
 
             if self.print_cost:
-                print(" - CONVERGENCE TEST: ", test)
+                print("  - convergence test: ", test)
 
             return test <= self.tolerance
 
@@ -209,9 +216,12 @@ class costFunction():
         x : np.ndarray
             Deconvolved data array
         """
-        self.res = np.std(self.y - self.grad.MX(x)) # / np.linalg.norm(self.y)
+        #self.res = np.std(self.y - self.grad.MX(x)) # / np.linalg.norm(self.y)
         if self.print_cost:
-            print(" - STD RESIDUAL: ", self.res)
+            #print(" - STD RESIDUAL: ", self.res)
+            print("  - lasso cost: ", self.cost)
+            print("  - res cost: ", self.res)
+            print("  - regu cost: ", self.regu)
 
     def get_cost(self, x):
         """ Get cost function
@@ -234,17 +244,17 @@ class costFunction():
         self.iteration += 1
         self.cost_old = self.cost
 
-        self.check_residual(x)
-
         if self.positivity:
-            print(" - MIN(X): ", np.min(x))
+            print("  - min(X): ", np.min(x))
 
         if self.mode == 'all':
             self.cost = (0.5 * self.l2norm(x) ** 2 + self.l1norm(x) +
                          self.nucnorm(x))
 
         elif self.mode == 'lasso':
-            self.cost = 0.5 * self.l2norm(x)**2 + self.lambda_reg * self.l1norm(x)
+            self.res = 0.5 * np.linalg.norm(self.grad.MX(x) - self.y)**2
+            self.regu = generic_l1_norm(self.wavelet.op(x))
+            self.cost = self.res + self.lambda_reg * self.regu
 
         elif self.mode == 'lowr':
             self.cost = (0.5 * self.l2norm(x) ** 2 + self.lambda_reg *
@@ -254,8 +264,27 @@ class costFunction():
             self.cost = 0.5 * self.l2norm(x) ** 2
 
         self.cost_list.append(self.cost)
+        self.res_list.append(self.res)
+        self.regu_list.append(self.regu)
+
+        self.check_residual(x)
 
         return self.check_cost(x)
+
+    def pickle_cost_list(self, filename=None):
+        """ Save the parameter of the optimisation and the cost list value in a
+            pickle file.
+        """
+        if filename is None:
+            filename = osp.splitext(self.output)[0] + ".pkl"
+        to_dump = {'nb_iter': self.iteration,
+                   'mu': self.lambda_reg,
+                   'cost_list': np.array(self.cost_list),
+                   'regu_list': np.array(self.regu_list),
+                   'res_list': np.array(self.res_list),
+                   }
+        with open(filename, "wb") as pfile:
+            pickle.dump(to_dump, pfile)
 
     def plot_cost(self):
         """ Plot cost function.

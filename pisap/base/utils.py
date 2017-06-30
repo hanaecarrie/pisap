@@ -55,7 +55,11 @@ def generic_l2_norm(x):
 
     Parameters:
     -----------
-    x: np.ndarray, DictionaryBase
+    x: np.ndarray or DictionaryBase
+
+    Return:
+    ------
+    norm: float, the L2 norm of the input.
     """
     if isinstance(x, np.ndarray):
         return np.linalg.norm(x)
@@ -63,6 +67,26 @@ def generic_l2_norm(x):
         return np.linalg.norm(x._data)
     else:
         TypeError("'generic_l2_norm' only accpet 'np.ndarray' or "
+                    + "'DictionaryBase': {0} not reconized.".format(type(x)))
+
+
+def generic_l1_norm(x):
+    """ Compute the L1 norm for the given input.
+
+    Parameters:
+    -----------
+    x: np.ndarray or DictionaryBase
+
+    Return:
+    ------
+    norm: float, the L1 norm of the input.
+    """
+    if isinstance(x, np.ndarray):
+        return np.abs(x).sum()
+    elif isinstance(x, pisap.base.dictionary.DictionaryBase):
+        return x.absolute._data.sum()
+    else:
+        TypeError("'generic_l1_norm' only accpet 'np.ndarray' or "
                     + "'DictionaryBase': {0} not reconized.".format(type(x)))
 
 
