@@ -406,12 +406,12 @@ class Condat():
         x_temp = (self.x_old - self.tau * self.grad.grad - self.tau *
                   self.linear.adj_op(self.y_old))
         x_prox = self.prox.op(x_temp)
-
         # Step 2 from eq.9.
         y_temp = (self.y_old + self.sigma *
                   self.linear.op(2 * x_prox - self.x_old))
         y_prox = (y_temp - self.sigma *
-                  self.prox_dual.op(y_temp, extra_factor=self.extra_factor))
+                  self.prox_dual.op(y_temp / self.sigma,
+                                    extra_factor=(1/self.sigma)))
 
         # Step 3 from eq.9.
         self.x_new = self.rho * x_prox + (1 - self.rho) * self.x_old

@@ -294,7 +294,7 @@ def sparse_rec_fista(
 
     # Define the proximity dual operator
     weights = copy.deepcopy(alpha)
-    weights.set_constant_values(values=mu/lipschitz_cst)
+    weights.set_constant_values(values=mu) # re-double check
     prox_op = SoftThreshold(weights)
 
     # Define the cost operator
