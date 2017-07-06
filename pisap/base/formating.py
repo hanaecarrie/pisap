@@ -260,6 +260,30 @@ def flatten_decimated_feauveau(cube, trf):
     return np.concatenate(pieces)
 
 
+def flatten_pywt_haar(cube, trf):
+    """ Flatten decomposition coefficients from a pywavelet wavelet structure to
+        a vector.
+
+        Parameters
+        ----------
+        cube: np.ndarray, the cube that containes the decomposition coefficients.
+
+        Return:
+        --------
+        data: np.ndarray, the flatten 'cube'.
+    """
+    pieces = []
+
+    idx_scale = range(1, trf.nb_scale)
+    idx_scale.reverse()
+    for ks in idx_scale:
+        pieces.append(cube[ks][2].flatten())
+        pieces.append(cube[ks][1].flatten())
+        pieces.append(cube[ks][0].flatten())
+    pieces.append(cube[0].flatten()) # get approx
+    return np.concatenate(pieces)
+
+
 ###
 # INFLATED
 
@@ -391,20 +415,46 @@ def inflated_decimated_feauveau(trf):
     set_htl(tmp, trf.get_band(trf.nb_scale-1, 0)) #set approx
     return cube
 
+
+def inflated_pywt_haar(trf):
+    """ Inflated the coefficients to a pywavelet wavelet structure.
+
+        Parameters
+        ----------
+        vector: np.ndarray, the vector that containes the decomposition coefficients.
+
+        Return:
+        --------
+        data: np.ndarray, the flatten 'cube'.
+    """
+    cube = [trf.get_band(trf.nb_scale-1, 0)] #set_approx
+    idx_scale = range(trf.nb_scale-1)
+    idx_scale.reverse()
+    for ks in idx_scale:
+        scale = []
+        scale.append(trf.get_band(ks, 2))
+        scale.append(trf.get_band(ks, 1))
+        scale.append(trf.get_band(ks, 0))
+        cube.append(tuple(scale))
+    return cube
+
+
 ###
 # FORMATING FCTS INDEXES
 
 
-FLATTENING_FCTS = [flatten_undecimated_n_bands,
-                   flatten_decimated_1_bands,
-                   flatten_decimated_3_bands,
-                   flatten_vector,
-                   flatten_decimated_feauveau,
-                  ]
+FLATTENING_FCTS = {0: flatten_undecimated_n_bands,
+                   1: flatten_decimated_1_bands,
+                   2: flatten_decimated_3_bands,
+                   3: flatten_vector,
+                   4: flatten_decimated_feauveau,
+                   -1: flatten_pywt_haar,
+                  }
 
-INFLATING_FCTS = [inflated_undecimated_n_bands,
-                  inflated_decimated_1_bands,
-                  inflated_decimated_3_bands,
-                  inflated_vector,
-                  inflated_decimated_feauveau,
-                  ]
+INFLATING_FCTS = {0: inflated_undecimated_n_bands,
+                  1: inflated_decimated_1_bands,
+                  2: inflated_decimated_3_bands,
+                  3: inflated_vector,
+                  4: inflated_decimated_feauveau,
+                  -1: inflated_pywt_haar,
+                  }

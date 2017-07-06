@@ -87,7 +87,10 @@ class Image(Observable):
     def show(self):
         """ Display the image data.
         """
-        plot_data(self.data, scroll_axis=self._scroll_axis)
+        if numpy.iscomplex(self.data).any():
+            plot_data(numpy.abs(self.data), scroll_axis=self._scroll_axis)
+        else:
+            plot_data(self.data, scroll_axis=self._scroll_axis)
 
     def modified(self):
         """ Send a modified signal to the observers.
