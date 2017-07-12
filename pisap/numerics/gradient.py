@@ -21,13 +21,13 @@ from sf_deconvolve.lib.gradient import GradBasic
 from sf_deconvolve.lib.algorithms import PowerMethod
 
 
-class Grad2DSynthese(GradBasic, PowerMethod):
+class Grad2DAnalysis(GradBasic, PowerMethod):
     """ Standard 2D gradient.
 
     This class defines the operators for a 2D array.
     """
     def __init__(self, data, mask):
-        """ Initilize the Grad2DSynthese class.
+        """ Initilize the Grad2DAnalysis class.
 
         Parameters
         ----------
@@ -87,13 +87,13 @@ class Grad2DSynthese(GradBasic, PowerMethod):
         return pfft.ifft2(self.mask * coeffs)
 
 
-class Grad2DAnalyse(GradBasic, PowerMethod):
+class Grad2DSynthesis(GradBasic, PowerMethod):
     """ Analysis 2D gradient class.
 
     This class defines the grad operators for |M*F*invL*alpha - data|**2.
     """
     def __init__(self, data, mask, linear_operator):
-        """ Initilize the Grad2DAnalyse class.
+        """ Initilize the Grad2DSynthesis class.
 
         Parameters
         ----------
