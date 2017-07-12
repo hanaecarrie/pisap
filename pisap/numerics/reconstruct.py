@@ -20,6 +20,8 @@ from pisap.stats import multiscale_sigma_mad
 from .reweight import mReweight
 
 # Third party import
+from sf_deconvolve.lib.optimisation import FISTA
+from sf_deconvolve.lib.optimisation import update_rule
 from sf_deconvolve.lib.optimisation import ForwardBackward
 from sf_deconvolve.lib.optimisation import Condat
 from sf_deconvolve.lib.reweight import cwbReweight
@@ -233,9 +235,10 @@ def sparse_rec_condat_vu(
 
 def sparse_rec_fista(
         data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
-        mu, lambda_init=1.0, max_nb_of_iter=300, atol=1e-4, outdir=None,
+        mu, max_nb_of_iter=300, atol=1e-4, outdir=None,
         verbose=0):
-    """ The Condat-Vu sparse reconstruction with reweightings.
+    """ The ForwardBackward with FISTA momentum sparse reconstruction with
+    reweightings.
 
     Parameters
     ----------
@@ -252,8 +255,6 @@ def sparse_rec_fista(
         the 'linear_cls' parameters.
     mu: float
        coefficient of regularization.
-    lambda_init: float, (default 1.0)
-        initial value for the FISTA step.
     max_nb_of_iter: int (optional, default 300)
         the maximum number of iterations in the Condat-Vu proximal-dual
         splitting algorithm.
@@ -314,14 +315,14 @@ def sparse_rec_fista(
         positivity=False)
 
     # Define the FISTA optimization method
+    fista = FISTA(alpha)
+
     opt = ForwardBackward(
         x=alpha,
         grad=grad_op,
         prox=prox_op,
         cost=cost_op,
-        lambda_init=lambda_init,
-        lambda_update=None,
-        use_fista=True,
+        speed_up_rule_cls=fista,
         auto_iterate=False)
 
     # Perform the reconstruction
