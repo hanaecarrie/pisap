@@ -20,6 +20,7 @@ from pisap.stats import multiscale_sigma_mad
 from .reweight import mReweight
 
 # Third party import
+from sf_deconvolve.lib.optimisation import POGM
 from sf_deconvolve.lib.optimisation import FISTA
 from sf_deconvolve.lib.optimisation import update_rule
 from sf_deconvolve.lib.optimisation import ForwardBackward
@@ -426,6 +427,112 @@ def sparse_rec_fista(
         prox=prox_op,
         cost=cost_op,
         speed_up_rule_cls=fista,
+        auto_iterate=False)
+
+    # Perform the reconstruction
+    opt.iterate(max_iter=max_nb_of_iter)
+
+    # Finish message
+    end = time.clock()
+    if verbose > 0:
+        cost_op.plot_cost()
+        print("-" * 20)
+        print(" - Final iteration number: ", cost_op.iteration)
+        print(" - Final log10 cost value: ", np.log10(cost_op.cost))
+        print(" - Converged: ", opt.converge)
+        print(" - Execution time: ", end - start, " seconds")
+
+    return pisap.Image(data=linear_op.adj_op(opt.x_final))
+
+
+def sparse_rec_pogm(
+        data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
+        mu, max_nb_of_iter=300, atol=1e-4, outdir=None,
+        verbose=0):
+    """ The Forward-Backward using POGM momentum sparse reconstruction with
+    reweightings.
+
+    Parameters
+    ----------
+    data: ndarray
+        the data to reconstruct: observation are expected in Fourier space.
+    gradient_cls: class
+        a derived 'GradBase' class.
+    gradient_kwargs: dict
+        the 'gradient_cls' parameters, the first parameter is the data to
+        be reconstructed.
+    linear_cls: class
+        a linear operator class.
+    linear_kwargs: dict
+        the 'linear_cls' parameters.
+    mu: float
+       coefficient of regularization.
+    max_nb_of_iter: int (optional, default 300)
+        the maximum number of iterations in the Condat-Vu proximal-dual
+        splitting algorithm.
+    atol: float (optional, default 1e-4)
+        tolerance threshold for convergence.
+    outdir: str (optional, default None)
+        the destination folder.
+    verbose: int (optional, default 0)
+        the verbosity level.
+
+    Returns
+    -------
+    x_final: Image
+        the estimated POGM solution.
+    """
+    # Welcome message
+    start = time.clock()
+    if verbose > 0:
+        print("-" * 20)
+        print("Starting POGM reconstruction algorithm.")
+        print("argmin_alpha |Ft*L*alpha - y|_2^2 + mu * |alpha|_1")
+
+    # Define the linear operator
+    linear_op = linear_cls(**linear_kwargs)
+
+    # Define initial primal and dual solutions
+    x_init = np.zeros(data.shape, dtype=np.complex)  # grad_op.MtX(data)
+    alpha = linear_op.op(x_init)
+    alpha[...] = 0
+
+    # Define the gradient operator
+    gradient_kwargs["linear_operator"] = linear_op
+    grad_op = gradient_cls(data, **gradient_kwargs)
+
+    lipschitz_cst = grad_op.spec_rad
+    if verbose > 0:
+        print(" - image Variable Shape: ", x_init.shape)
+        print(" - alpha Variable Shape: ", alpha.shape)
+        print("-" * 20)
+
+    # Define the proximity dual operator
+    weights = copy.deepcopy(alpha)
+    weights[...] = mu / lipschitz_cst
+    prox_op = SoftThreshold(weights)
+
+    # Define the cost operator
+    cost_op = costFunction(
+        y=data,
+        operator=grad_op.MX,
+        wavelet=linear_op,
+        weights=weights,
+        lambda_reg=mu,
+        mode="lasso",
+        window=2,
+        print_cost=verbose > 0,
+        tolerance=atol,
+        residual=verbose > 0,
+        positivity=False)
+
+    # Define the POGM optimization method
+
+    opt = POGM(
+        x=alpha,
+        grad=grad_op,
+        prox=prox_op,
+        cost=cost_op,
         auto_iterate=False)
 
     # Perform the reconstruction
