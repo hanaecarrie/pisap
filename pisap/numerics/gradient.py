@@ -160,7 +160,13 @@ class Grad2DSynthese(GradBase):
         """ Initilize the Grad2DSynthese class.
         """
         self.y = data
-        self.ft_cls = ft_cls
+        if isinstance(ft_cls, dict):
+            if len(ft_cls) > 1:
+                raise ValueError("ft_cls in Grad2DAnalyse should ether be a 1"
+                                 " 'key dict' or a 'fourier op class'")
+            self.ft_cls = ft_cls.keys()[0](**ft_cls.values()[0])
+        else:
+            self.ft_cls = ft_cls
         self.get_spec_rad()
 
     def get_initial_x(self):
@@ -223,7 +229,13 @@ class Grad2DAnalyse(GradBase):
         """ Initilize the Grad2DAnalyse class.
         """
         self.y = data
-        self.ft_cls = ft_cls
+        if isinstance(ft_cls, dict):
+            if len(ft_cls) > 1:
+                raise valueerror("ft_cls in grad2danalyse should ether be a 1"
+                                 " 'key dict' or a 'fourier op class'")
+            self.ft_cls = ft_cls.keys()[0](**ft_cls.values()[0])
+        else:
+            self.ft_cls = ft_cls
         self.linear_cls = linear_cls
         self.get_spec_rad()
 
