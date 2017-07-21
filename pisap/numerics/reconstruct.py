@@ -35,7 +35,7 @@ def sparse_rec_condat_vu(
         data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
         std_est=None, std_est_method=None, std_thr=2., mu=1.0e-6, tau=None,
         sigma=None, relaxation_factor=1.0, nb_of_reweights=1, max_nb_of_iter=150,
-        add_positivity=False, atol=1e-4, verbose=0, report=True):
+        add_positivity=False, atol=1e-4, verbose=0, report=False):
     """ The Condat-Vu sparse reconstruction with reweightings.
 
     Parameters
@@ -268,7 +268,7 @@ def sparse_rec_condat_vu(
 def sparse_rec_fista(
         data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
         mu, lambda_init=1.0, max_nb_of_iter=300, atol=1e-4, verbose=0,
-        report=True):
+        report=False):
 
     """ The Condat-Vu sparse reconstruction with reweightings.
 
