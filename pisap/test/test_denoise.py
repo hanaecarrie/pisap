@@ -54,3 +54,7 @@ class TestDenoise(unittest.TestCase):
         # before the level
         res = hard_thresholding(IMGS[2], LEVEL)
         np.testing.assert_allclose(res, np.zeros(SHAPE))
+
+
+if __name__ == '__main__':
+    unittest.main()

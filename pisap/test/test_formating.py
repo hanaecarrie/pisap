@@ -23,6 +23,7 @@ from pisap.base.formating import flatten_undecimated_n_bands, \
 
 # global cst
 IMG = pisap.io.load(osp.join("data", "M31_128.fits")).data # 128*128 px
+NX=128
 NB_SCALE = 3
 
 class TestFormating(unittest.TestCase):
@@ -33,7 +34,7 @@ class TestFormating(unittest.TestCase):
         isap_kwargs = {'type_of_multiresolution_transform': id_trf,
                        'number_of_scales': NB_SCALE,
                       }
-        linear_op = linearWaveletTransformATrousAlgorithm(maxscale=NB_SCALE)
+        linear_op = linearWaveletTransformATrousAlgorithm(maxscale=NB_SCALE, nx=NX)
         trf = linear_op.op(IMG)
         # test
         ref_cube, header = isap_transform(IMG, **isap_kwargs)
@@ -48,7 +49,7 @@ class TestFormating(unittest.TestCase):
         isap_kwargs = {'type_of_multiresolution_transform': id_trf,
                        'number_of_scales': NB_SCALE,
                       }
-        linear_op = pyramidalBsplineWaveletTransform(maxscale=NB_SCALE)
+        linear_op = pyramidalBsplineWaveletTransform(maxscale=NB_SCALE, nx=NX)
         trf = linear_op.op(IMG)
         # test
         ref_cube, header = isap_transform(IMG, **isap_kwargs)
@@ -63,7 +64,7 @@ class TestFormating(unittest.TestCase):
         isap_kwargs = {'type_of_multiresolution_transform': id_trf,
                        'number_of_scales': NB_SCALE,
                       }
-        linear_op = haarWaveletTransform(maxscale=NB_SCALE)
+        linear_op = haarWaveletTransform(maxscale=NB_SCALE, nx=NX)
         trf = linear_op.op(IMG)
         # test
         ref_cube, header = isap_transform(IMG, **isap_kwargs)
@@ -78,7 +79,7 @@ class TestFormating(unittest.TestCase):
         isap_kwargs = {'type_of_multiresolution_transform': id_trf,
                        'number_of_scales': NB_SCALE,
                       }
-        linear_op = fastCurveletTransform(maxscale=NB_SCALE)
+        linear_op = fastCurveletTransform(maxscale=NB_SCALE, nx=NX)
         trf = linear_op.op(IMG)
         # test
         ref_cube, header = isap_transform(IMG, **isap_kwargs)
@@ -93,7 +94,7 @@ class TestFormating(unittest.TestCase):
         isap_kwargs = {'type_of_multiresolution_transform': id_trf,
                        'number_of_scales': NB_SCALE,
                       }
-        linear_op = FeauveauWaveletTransform(maxscale=NB_SCALE)
+        linear_op = FeauveauWaveletTransform(maxscale=NB_SCALE, nx=NX)
         trf = linear_op.op(IMG)
         # test
         ref_cube, header = isap_transform(IMG, **isap_kwargs)
@@ -101,3 +102,7 @@ class TestFormating(unittest.TestCase):
         trf._data = flatten_cube
         inflated_cube = inflated_decimated_feauveau(trf)
         np.testing.assert_allclose(inflated_cube, ref_cube)
+
+
+if __name__ == '__main__':
+    unittest.main()

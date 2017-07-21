@@ -27,3 +27,7 @@ class TestFourier(unittest.TestCase):
         ft_img = nfft.op(IMG)
         rec_ft = nfft.adj_op(ft_img)
         np.testing.assert_allclose(trunc_to_zero(rec_ft, eps=1.0e-8), IMG, rtol=1e-4)
+
+
+if __name__ == '__main__':
+    unittest.main()

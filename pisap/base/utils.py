@@ -308,10 +308,10 @@ def isap_recons(data, header):
         return _isap_recons(data.astype(float), header)
 
 
-def run_both(linear_op, data, nb_scale, isap_kwargs):
+def run_both(linear_op, data, nb_scale, nx, isap_kwargs):
     """ Run ispa and pisap trf and reconstruction.
     """
-    init_kwarg = {'maxscale': nb_scale}
+    init_kwarg = {'maxscale': nb_scale, 'nx':nx}
     linear_op = linear_op(**init_kwarg)
     trf = linear_op.op(data)
     trf_img = trf.to_cube()
