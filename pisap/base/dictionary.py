@@ -37,7 +37,8 @@ class DictionaryBase(object):
 
     def __init__(self, data=None, name=None, id_formating=None, id_trf=None,
                  is_decimated=None, bands_names=None, nb_scale=None,
-                 nb_band_per_scale=None, bands_lengths=None, bands_shapes=None):
+                 nb_band_per_scale=None, bands_lengths=None, bands_shapes=None,
+                 nx=None):
         """ Initialize the DictionaryBase class.
 
         Parameters
@@ -69,6 +70,8 @@ class DictionaryBase(object):
         bands_shapes: list of list of tuple, ndim=2,
             (nb_scale, nb_band_per_scale), structure holding the shape of each
             bands, per scale.
+        nx: int,
+            the iso dimension of the image.
         """
         self.name = name
         self.bands_names = bands_names
@@ -79,7 +82,7 @@ class DictionaryBase(object):
         self.id_trf = id_trf
 
         self._data = data.flatten()
-        self.native_image_shape = data.shape
+        self.native_image_shape = (nx, nx)
 
         self.nb_scale = nb_scale
         self.nb_band_per_scale = nb_band_per_scale
@@ -142,8 +145,6 @@ class DictionaryBase(object):
         # check coherent shape-metadata
         if self.is_transform:
             res = res and (len(self._data) == int(self.bands_lengths.sum()))
-        else:
-            res = res and (len(self._data) == int(nx*ny))
         return res
 
     #### OVERLOADING
@@ -504,6 +505,7 @@ class DictionaryBase(object):
         """
         kwargs["number_of_scales"] = self.nb_scale
         kwargs.pop('maxscale')
+        kwargs.pop('nx')
         tmpdir = isapproof_mkdtemp()
         in_image = os.path.join(tmpdir, "in.fits")
         out_mr_file = os.path.join(tmpdir, "cube.mr")
@@ -716,6 +718,7 @@ class Dictionary(object):
         """ Initialize the Dictionary class.
         """
         self.metadata = {'nb_scale': kwargs['maxscale']}
+        self.metadata['nx'] = kwargs['nx']
         self.isap_kwargs = kwargs
 
     def _late_init(self):

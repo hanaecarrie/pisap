@@ -25,7 +25,7 @@ class linearWaveletTransformATrousAlgorithm(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 1), dtype=int)
         # bands_shapes
         bands_shapes = set_bands_shapes(bands_lengths)
@@ -51,7 +51,7 @@ class bsplineWaveletTransformATrousAlgorithm(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 1), dtype=int)
         # bands_shapes
         bands_shapes = set_bands_shapes(bands_lengths)
@@ -77,7 +77,7 @@ class waveletTransformInFourierSpace(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 1), dtype=int)
         # bands_shapes
         bands_shapes = set_bands_shapes(bands_lengths)
@@ -103,7 +103,7 @@ class morphologicalMedianTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 1), dtype=int)
         # bands_shapes
         bands_shapes = set_bands_shapes(bands_lengths)
@@ -129,7 +129,7 @@ class morphologicalMinmaxTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 1), dtype=int)
         # bands_shapes
         bands_shapes = set_bands_shapes(bands_lengths)
@@ -155,7 +155,7 @@ class pyramidalLinearWaveletTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -186,7 +186,7 @@ class pyramidalBsplineWaveletTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -219,7 +219,7 @@ class pyramidalWaveletTransformInFourierSpaceAlgo1(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -250,7 +250,7 @@ class MeyerWaveletsCompactInFourierSpace(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -281,7 +281,7 @@ class pyramidalMedianTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -312,7 +312,7 @@ class pyramidalLaplacian(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -343,7 +343,7 @@ class morphologicalPyramidalMinmaxTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -374,7 +374,7 @@ class decompositionOnScalingFunction(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -405,7 +405,7 @@ class MallatWaveletTransform7_9Filters(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([3] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 3), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -436,7 +436,7 @@ class FeauveauWaveletTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([2] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 2), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -470,7 +470,7 @@ class FeauveauWaveletTransformWithoutUndersampling(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 1), dtype=int)
         # bands_shapes
         bands_shapes = set_bands_shapes(bands_lengths)
@@ -488,7 +488,7 @@ class LineColumnWaveletTransform1D1D(Dictionary):
     """ Line Column Wavelet Transform (1D+1D).
     """
     def _trf_id(self):
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         _map = {128:5, 512:6}
         self.metadata['nb_scale'] =  _map[nx] # fixed for this wavelet
         nb_scale = self.metadata['nb_scale']
@@ -524,7 +524,7 @@ class haarWaveletTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([3] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 3), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -555,7 +555,7 @@ class halfPyramidalTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 1), dtype=int)
         # bands_shapes
         bands_shapes = set_bands_shapes(bands_lengths)
@@ -581,7 +581,7 @@ class mixedHalfPyramidalWTAndMedianMethod(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 1), dtype=int)
         # bands_shapes
         bands_shapes = set_bands_shapes(bands_lengths)
@@ -607,7 +607,7 @@ class undecimatedDiadicWaveletTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([2] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 2), dtype=int)
         bands_lengths[-1, 1:] = 0
         # bands_shapes
@@ -634,7 +634,7 @@ class mixedWTAndPMTMethod(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -665,7 +665,7 @@ class undecimatedHaarTransformATrousAlgorithm(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 1), dtype=int)
         # bands_shapes
         bands_shapes = set_bands_shapes(bands_lengths)
@@ -691,7 +691,7 @@ class undecimatedBiOrthogonalTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([3] * nb_scale)
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 3), dtype=int)
         bands_lengths[-1, 1] = 0.
         bands_lengths[-1, 2] = 0.
@@ -719,7 +719,7 @@ class nonOrthogonalUndecimatedTransform(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([3] * nb_scale)
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 3), dtype=int)
         bands_lengths[-1, 1] = 0.
         bands_lengths[-1, 2] = 0.
@@ -747,7 +747,7 @@ class isotropicAndCompactSupportWaveletInFourierSpace(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -780,7 +780,7 @@ class pyramidalWaveletTransformInFourierSpaceAlgo2(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([1] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 1), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -845,7 +845,7 @@ class waveletTransformViaLiftingScheme(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([3] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 3), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):
@@ -876,7 +876,7 @@ class onLine5_3AndOnColumn4_4(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([3] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 3), dtype=int)
         bands_lengths[-1, 1:] = 0
         # bands_shapes
@@ -903,7 +903,7 @@ class onLine4_4AndOnColumn5_3(Dictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([3] * (nb_scale-1) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = (nx * nx) * np.ones((nb_scale, 3), dtype=int)
         bands_lengths[-1, 1:] = 0
         # bands_shapes
@@ -931,7 +931,7 @@ class PywtHaarWaveletTransform(PywtDictionary):
         # nb_band_per_scale
         nb_band_per_scale = np.array([3] * (nb_scale) + [1])
         # bands_lengths
-        nx, _ = self.data.shape
+        nx = self.metadata['nx']
         bands_lengths = nx * np.ones((nb_scale, 3), dtype=int)
         bands_lengths[-1,1:] = 0
         for i, scale in enumerate(bands_lengths):

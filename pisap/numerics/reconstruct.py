@@ -111,6 +111,8 @@ def sparse_rec_condat_vu(
     # Define the linear operator
     linear_op = linear_cls(**linear_kwargs)
 
+    img_shape = (grad_op.ft_cls.img_size, grad_op.ft_cls.img_size)
+
     # Define the weights used during the thresholding in the dual domain
     if std_est_method == "image":
         # Define the noise std estimate in the image domain
@@ -133,7 +135,7 @@ def sparse_rec_condat_vu(
         extra_factor_update = sigma_mad_sparse
     elif std_est_method is None:
         # manual regularization mode
-        levels = linear_op.op(np.zeros(data.shape))
+        levels = linear_op.op(np.zeros(img_shape))
         levels.set_constant_values(values=mu)
         prox_dual_op = SoftThreshold(levels)
         extra_factor_update = None
@@ -142,7 +144,7 @@ def sparse_rec_condat_vu(
     # Define the Condat Vu optimizer: define the tau and sigma in the
     # Condat-Vu proximal-dual splitting algorithm if not already provided.
     # Check also that the combination of values will lead to convergence.
-    norm = linear_op.l2norm(data.shape)
+    norm = linear_op.l2norm(img_shape)
     lipschitz_cst = grad_op.spec_rad
     if sigma is None:
         sigma = 0.5
@@ -166,7 +168,7 @@ def sparse_rec_condat_vu(
         print("-" * 20)
 
     # Define initial primal and dual solutions
-    primal = np.zeros(data.shape, dtype=np.complex)
+    primal = np.zeros(img_shape, dtype=np.complex)
     dual = linear_op.op(primal)
     dual.set_constant_values(values=0.0)
 
