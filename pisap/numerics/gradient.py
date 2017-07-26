@@ -144,8 +144,8 @@ class GradBase(object):
         self.grad = self.MtX(self.MX(x) - self.y) # self.y can be a 2D array or a vector
 
 
-class Grad2DSynthese(GradBase):
-    """ Standard 2D gradient class
+class Grad2DAnalysis(GradBase):
+    """ Analysis 2D gradient class
 
     This class defines the operators for a 2D array
 
@@ -211,8 +211,8 @@ class Grad2DSynthese(GradBase):
         return self.ft_cls.adj_op(x)
 
 
-class Grad2DAnalyse(GradBase):
-    """ Analysis 2D gradient class
+class Grad2DSynthesis(GradBase):
+    """ Synthesis 2D gradient class
 
     This class defines the grad operators for |M*F*invL*alpha - data|**2.
 
