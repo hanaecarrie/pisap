@@ -75,7 +75,7 @@ class SoftThreshold(object):
         """
         self.weights = weights
 
-    def op(self, data, extra_factor=1.0):
+    def op(self, data, extra_factor=1.0, regularised_approx=True):
         """ Operator
 
         This method returns the input data thresholded by the weights
@@ -86,13 +86,20 @@ class SoftThreshold(object):
             Input data array
         extra_factor : float
             Additional multiplication factor
-
+        regularised_approx: bool
+            Option to regularize with the approximation
         Returns
         -------
         DictionaryBase thresholded data
 
         """
         threshold = self.weights * extra_factor
-        data._data = soft_thresholding(data._data, threshold._data)
+        if regularised_approx:
+            data._data = soft_thresholding(data._data, threshold._data)
+        else:
+            mask = data.get_scale_mask(1)
+            for ks in range(2, data.nb_scale):
+                mask = mask | data.get_scale_mask(ks)
+            data._data[mask] = soft_thresholding(data._data[mask], threshold._data[mask])
         return data
 

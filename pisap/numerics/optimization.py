@@ -115,13 +115,16 @@ class ForwardBackward(FISTA):
         Relaxation parameter update method
     use_fista : bool
         Option to use FISTA (default is 'True')
+    regularised_approx: bool (default is 'True')
+        Option to regularize with the approximation or not
     auto_iterate : bool
         Option to automatically begin iterations upon initialisation (default
         is 'False')
     """
 
     def __init__(self, x, grad, prox, cost=None, lambda_init=None,
-                 lambda_update=None, use_fista=True, auto_iterate=False):
+                 lambda_update=None, use_fista=True, auto_iterate=False,
+                 regularised_approx=True):
         FISTA.__init__(self, lambda_init, use_fista)
         self.x_old = x
         self.z_old = copy.deepcopy(self.x_old)
@@ -131,6 +134,7 @@ class ForwardBackward(FISTA):
         self.cost_func = cost
         self.lambda_update = lambda_update
         self.converge = False
+        self.regularised_approx = regularised_approx
         if auto_iterate:
             self.iterate()
 
@@ -153,7 +157,9 @@ class ForwardBackward(FISTA):
         y_old = self.z_old - self.grad.inv_spec_rad * self.grad.grad
 
         # Step 2 from alg.10.7.
-        self.x_new = self.prox.op(y_old, extra_factor=self.grad.inv_spec_rad)
+        self.x_new = self.prox.op(y_old,
+                                  extra_factor=self.grad.inv_spec_rad,
+                                  regularised_approx=self.regularised_approx)
 
         # Steps 3 and 4 from alg.10.7.
         self.speed_up()

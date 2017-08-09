@@ -266,7 +266,7 @@ def sparse_rec_condat_vu(
 
 def sparse_rec_fista(
         data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
-        mu, lambda_init=1.0, max_nb_of_iter=300, atol=1e-4, verbose=0,
+        mu, regularised_approx, lambda_init=1.0, max_nb_of_iter=300, atol=1e-4, verbose=0,
         report=False):
 
     """ The Condat-Vu sparse reconstruction with reweightings.
@@ -286,6 +286,8 @@ def sparse_rec_fista(
         the 'linear_cls' parameters.
     mu: float
        coefficient of regularization.
+    regularised_approx: bool
+        option to regularize with the approximation
     lambda_init: float, (default 1.0)
         initial value for the FISTA step.
     max_nb_of_iter: int (optional, default 300)
@@ -359,7 +361,8 @@ def sparse_rec_fista(
         lambda_init = lambda_init,
         lambda_update=None,
         use_fista=True,
-        auto_iterate=False)
+        auto_iterate=False,
+        regularised_approx=regularised_approx)
 
     # Perform the reconstruction
     opt.iterate(max_iter=max_nb_of_iter)
