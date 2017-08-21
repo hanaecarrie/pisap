@@ -346,6 +346,8 @@ class Condat():
         Proximal primal parameter update method
     extra_factor_update :
         Extra factor passed to the dual proximity operator update
+    regularised_approx: bool (default is 'True')
+        Option to regularize with the approximation or not
     auto_iterate : bool
         Option to automatically begin iterations upon initialisation (default
         is 'False')
@@ -353,7 +355,8 @@ class Condat():
 
     def __init__(self, x, y, grad, prox, prox_dual, linear, cost,
                  rho,  sigma, tau, rho_update=None, sigma_update=None,
-                 tau_update=None, extra_factor_update=None, auto_iterate=False):
+                 tau_update=None, extra_factor_update=None,
+                 regularised_approx=True, auto_iterate=False):
         self.x_old = x
         self.x_new = np.copy(self.x_old)
         self.y_old = y
@@ -371,6 +374,7 @@ class Condat():
         self.converge = False
         self.extra_factor = 1.
         self.extra_factor_update = extra_factor_update
+        self.regularised_approx = regularised_approx
         if auto_iterate:
             self.iterate()
 
@@ -423,7 +427,8 @@ class Condat():
                   self.linear.op(2 * x_prox - self.x_old))
         y_prox = (y_temp - self.sigma *
                   self.prox_dual.op(y_temp / self.sigma,
-                                    extra_factor=(1/self.sigma)))
+                                    extra_factor=(1/self.sigma),
+                                    regularised_approx=self.regularised_approx))
 
         # Step 3 from eq.9.
         self.x_new = self.rho * x_prox + (1 - self.rho) * self.x_old

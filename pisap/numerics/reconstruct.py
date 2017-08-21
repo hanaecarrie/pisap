@@ -33,9 +33,10 @@ from .noise import sigma_mad_sparse
 
 def sparse_rec_condat_vu(
         data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
-        std_est=None, std_est_method=None, std_thr=2., mu=1.0e-6, tau=None,
-        sigma=None, relaxation_factor=1.0, nb_of_reweights=1, max_nb_of_iter=150,
-        add_positivity=False, atol=1e-4, verbose=0, report=False):
+        regularised_approx, std_est=None, std_est_method=None, std_thr=2.,
+        mu=1.0e-6, tau=None, sigma=None, relaxation_factor=1.0,
+        nb_of_reweights=1, max_nb_of_iter=150, add_positivity=False, atol=1e-4,
+        verbose=0,report=False):
     """ The Condat-Vu sparse reconstruction with reweightings.
 
     Parameters
@@ -67,6 +68,8 @@ def sparse_rec_condat_vu(
     tau, sigma: float (optional, default None)
         parameters of the Condat-Vu proximal-dual splitting algorithm.
         If None estimates these parameters.
+    regularised_approx: bool
+        option to regularize with the approximation
     relaxation_factor: float (optional, default 0.5)
         parameter of the Condat-Vu proximal-dual splitting algorithm.
         If 1, no relaxation.
