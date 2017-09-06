@@ -244,6 +244,10 @@ def sparse_rec_condat_vu(
         filename = "condat_report_" + time.strftime("%m_%d__%H_%M_%S") + ".pkl"
         to_dump = {'nb_iter': max_nb_of_iter,
                    'mu': mu,
+                   'tau': tau,
+                   'sigma': sigma,
+                   'rho': relaxation_factor,
+                   'L':lipschitz_cst,
                    'cost_list': np.array(cost_op.cost_list),
                    'regu_list': np.array(cost_op.regu_list),
                    'res_list': np.array(cost_op.res_list),
@@ -375,9 +379,9 @@ def sparse_rec_fista(
 
     if report:
         filename = "fista_report_" + time.strftime("%m_%d__%H_%M_%S") + ".pkl"
-        to_dump = {'delta'
-                   'nb_iter': max_nb_of_iter,
+        to_dump = {'nb_iter': max_nb_of_iter,
                    'mu': mu,
+                   'L': lipschitz_cst,
                    'cost_list': np.array(cost_op.cost_list),
                    'regu_list': np.array(cost_op.regu_list),
                    'res_list': np.array(cost_op.res_list),
