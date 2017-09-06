@@ -154,7 +154,7 @@ def sparse_rec_condat_vu(
         # to avoid numerics troubles with the convergence bound
         eps = 1.0e-8
         # due to the convergence bound
-        tau = 1 / (lipschitz_cst/2 + sigma * norm + eps)
+        tau = 1.0 / (lipschitz_cst/2 + sigma * norm**2 + eps)
 
     convergence_test = (
         1.0 / tau - sigma * norm ** 2 >= lipschitz_cst / 2.0)
