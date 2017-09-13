@@ -539,7 +539,7 @@ class DictionaryBase(object):
             cube_i = self._analysis(data, **kwargs)
             self.from_cube(cube_r+1.j*cube_i)
         else:
-            data = self._data.reshape(self.native_image_shape).astype(float)
+            data = self._data.real.reshape(self.native_image_shape).astype(float)
             self.from_cube(self._analysis(data, **kwargs))
 
     def _synthesis(self, cube):
@@ -584,7 +584,7 @@ class DictionaryBase(object):
             return pisap.Image(data=img_r+1.j*img_i,
                                metadata=self.isap_trf_header)
         else:
-            return pisap.Image(data=self._synthesis(cube.astype(float)),
+            return pisap.Image(data=self._synthesis(cube.real.astype(float)),
                                metadata=self.isap_trf_header)
 
     #### PROPERTY
