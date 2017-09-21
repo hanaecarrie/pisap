@@ -4,27 +4,21 @@
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
 # for details.
-#
-#:Author: Samuel Farrens <samuel.farrens@gmail.com>
 ##########################################################################
-
 # System import
 from __future__ import print_function
 import numpy as np
-import time
 import copy
-import pickle
-from scipy.linalg import norm
 
 # Package import
-import pisap
-from pisap.stats import sigma_mad
-from pisap.base.dictionary import Identity
+from ..base.image import Image
+from ..stats import sigma_mad
+from .linear import Identity
 from .proximity import SoftThreshold
 from .proximity import Positive
 from .optimization import CondatVu
 from .optimization import FISTA
-from .cost import LASSOSynthesis, LASSOAnalysis, DualGap
+from .cost import SynthesisCost, AnalysisCost, DualGapCost
 from .reweight import cwbReweight
 from .reweight import mReweight
 from .noise import sigma_mad_sparse
@@ -32,10 +26,10 @@ from .noise import sigma_mad_sparse
 
 def sparse_rec_condat_vu(
         data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
-        regularised_approx, std_est=None, std_est_method=None, std_thr=2.,
+        std_est=None, std_est_method=None, std_thr=2.,
         mu=1.0e-6, tau=None, sigma=None, relaxation_factor=1.0,
         nb_of_reweights=1, max_nb_of_iter=150, add_positivity=False, atol=1e-4,
-        ref=None, metric_call_period=5, metrics={}, verbose=0):
+        metric_call_period=5, metrics={}, verbose=0):
     """ The Condat-Vu sparse reconstruction with reweightings.
 
     Parameters
@@ -67,8 +61,6 @@ def sparse_rec_condat_vu(
     tau, sigma: float (optional, default None)
         parameters of the Condat-Vu proximal-dual splitting algorithm.
         If None estimates these parameters.
-    regularised_approx: bool
-        option to regularize with the approximation
     relaxation_factor: float (optional, default 0.5)
         parameter of the Condat-Vu proximal-dual splitting algorithm.
         If 1, no relaxation.
@@ -82,8 +74,6 @@ def sparse_rec_condat_vu(
         positive.
     atol: float (optional, default 1e-4)
         tolerance threshold for convergence.
-    ref: np.ndarray (default None)
-        image reference if given.
     metric_call_period: int (default is 5)
         the period on which the metrics are compute.
     metrics: dict, {'metric_name': [metric, if_early_stooping],} (optional)
@@ -119,7 +109,7 @@ def sparse_rec_condat_vu(
         if std_est is None:
             std_est = sigma_mad(grad_op.MtX(data))
         weights = linear_op.op(np.zeros(data.shape))
-        weights.set_constant_values(values=(std_thr * std_est))
+        weights[...] = std_thr * std_est
         reweight_op = cwbReweight(weights, wtype=std_est_method)
         prox_dual_op = SoftThreshold(reweight_op.weights)
         extra_factor_update = sigma_mad_sparse
@@ -128,7 +118,7 @@ def sparse_rec_condat_vu(
         if std_est is None:
             std_est = 1.0
         weights = linear_op.op(np.zeros(data.shape))
-        weights.set_constant_values(values=(std_thr * std_est))
+        weights[...] = std_thr * std_est
         reweight_op = mReweight(weights, wtype=std_est_method,
                                 thresh_factor=std_thr)
         prox_dual_op = SoftThreshold(reweight_op.weights)
@@ -136,7 +126,7 @@ def sparse_rec_condat_vu(
     elif std_est_method is None:
         # manual regularization mode
         levels = linear_op.op(np.zeros(img_shape))
-        levels.set_constant_values(values=mu)
+        levels[...] = mu
         prox_dual_op = SoftThreshold(levels)
         extra_factor_update = None
         nb_of_reweights = 0
@@ -170,7 +160,7 @@ def sparse_rec_condat_vu(
     # Define initial primal and dual solutions
     primal = np.zeros(img_shape, dtype=np.complex)
     dual = linear_op.op(primal)
-    dual.set_constant_values(values=0.0)
+    dual[...] = 0.0
 
     # Define the proximity operator
     if add_positivity:
@@ -179,17 +169,18 @@ def sparse_rec_condat_vu(
         prox_op = Identity()
 
     # by default add the lasso cost metric
-    lasso = LASSOAnalysis(data, grad_op, linear_op, mu)
+    lasso = AnalysisCost(data, grad_op, linear_op, mu)
     lasso_cost = {'lasso':{'metric':lasso,
                            'mapping': {'x_new': 'x', 'y_new':None},
                            'cst_kwargs':{},
                            'early_stopping': False}}
-    dual_gap = DualGap(linear_op)
+    metrics.update(lasso_cost)
+    # by default add the dual-gap cost metric
+    dual_gap = DualGapCost(linear_op)
     dual_gap_cost = {'dual_gap':{'metric':dual_gap,
                                  'mapping': {'x_new': 'x', 'y_new':'y'},
                                  'cst_kwargs':{},
                                  'early_stopping': False}}
-    metrics.update(lasso_cost)
     metrics.update(dual_gap_cost)
 
     # Define the Condat-Vu optimization method
@@ -198,7 +189,6 @@ def sparse_rec_condat_vu(
                    tau=tau, rho=relaxation_factor, rho_update=None,
                    sigma_update=None, tau_update=None, extra_factor=1.0,
                    extra_factor_update=extra_factor_update,
-                   regularised_approx=True,
                    metric_call_period=metric_call_period, metrics=metrics)
 
     # Perform the first reconstruction
@@ -218,7 +208,8 @@ def sparse_rec_condat_vu(
         if std_est_method == "image":
             reweight_op.reweight(linear_op.op(opt.x_new))
         else:
-            reweight_op.reweight(opt.extra_factor, linear_op.op(opt.x_new))
+            std_est = multiscale_sigma_mad(grad_op, linear_op)
+            reweight_op.reweight(std_est, linear_op.op(opt.x_new))
 
         # Update the weights in the dual proximity operator
         prox_dual_op.update_weights(reweight_op.weights)
@@ -229,14 +220,15 @@ def sparse_rec_condat_vu(
         # Perform optimisation with new weights
         opt.iterate(max_iter=max_nb_of_iter)
 
-    return pisap.Image(data=opt.x_final), opt.y_final, opt.metrics
+    linear_op.transform.analysis_data = opt.y_final
+
+    return Image(data=opt.x_final), linear_op.transform, opt.metrics
 
 
 def sparse_rec_fista(
         data, gradient_cls, gradient_kwargs, linear_cls, linear_kwargs,
-        mu, regularised_approx, lambda_init=1.0, max_nb_of_iter=300, atol=1e-4,
-        ref=None, metric_call_period=5, metrics={}, verbose=0):
-
+        mu, lambda_init=1.0, max_nb_of_iter=300, atol=1e-4,
+        metric_call_period=5, metrics={}, verbose=0):
     """ The Condat-Vu sparse reconstruction with reweightings.
 
     Parameters
@@ -254,8 +246,6 @@ def sparse_rec_fista(
         the 'linear_cls' parameters.
     mu: float
        coefficient of regularization.
-    regularised_approx: bool
-        option to regularize with the approximation
     lambda_init: float, (default 1.0)
         initial value for the FISTA step.
     max_nb_of_iter: int (optional, default 300)
@@ -263,8 +253,6 @@ def sparse_rec_fista(
         splitting algorithm.
     atol: float (optional, default 1e-4)
         tolerance threshold for convergence.
-    ref: np.ndarray (default None)
-        image reference if given.
     metric_call_period: int (default is 5)
         the period on which the metrics are compute.
     metrics: dict, {'metric_name': [metric, if_early_stooping],} (optional)
@@ -288,7 +276,7 @@ def sparse_rec_fista(
     linear_op = linear_cls(**linear_kwargs)
 
     # Define the gradient operator
-    gradient_kwargs['linear_cls'] = linear_op
+    gradient_kwargs["linear_cls"] = linear_op
     grad_op = gradient_cls(data, **gradient_kwargs)
     lipschitz_cst = grad_op.spec_rad
 
@@ -301,15 +289,15 @@ def sparse_rec_fista(
     shape = (grad_op.ft_cls.img_size, grad_op.ft_cls.img_size)
     x_init = np.zeros(shape, dtype=np.complex)
     alpha = linear_op.op(x_init)
-    alpha.set_constant_values(values=0.0)
+    alpha[...] = 0.0
 
     # Define the proximity dual operator
     weights = copy.deepcopy(alpha)
-    weights.set_constant_values(values=mu)
+    weights[...] = mu
     prox_op = SoftThreshold(weights)
 
     # by default add the lasso cost metric
-    lasso = LASSOSynthesis(data, grad_op, mu)
+    lasso = SynthesisCost(data, grad_op, mu)
     lasso_cost = {'lasso': {'metric':lasso,
                             'mapping': {'x_new': None, 'y_new':'x'},
                             'cst_kwargs':{},
@@ -322,5 +310,6 @@ def sparse_rec_fista(
     # Perform the reconstruction
     opt.iterate(max_iter=max_nb_of_iter)
 
-    return pisap.Image(data=linear_op.adj_op(opt.x_final)), opt.x_final, \
-           opt.metrics
+    linear_op.transform.analysis_data = opt.y_final
+
+    return Image(data=opt.x_final), linear_op.transform, opt.metrics

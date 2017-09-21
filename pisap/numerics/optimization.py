@@ -14,8 +14,8 @@ from ..base.observable import Observable, MetricObserver
 class FISTA(Observable):
     """ Fast Iterative Shrinkage-Thresholding Algorithm.
     """
-    def __init__(self, x, grad, prox, lbda_init=1.0, regularised_approx=True,
-                 metric_call_period=5, metrics={}):
+    def __init__(self, x, grad, prox, lbda_init=1.0, metric_call_period=5,
+                 metrics={}):
         """ Init.
 
         Parameters
@@ -28,8 +28,6 @@ class FISTA(Observable):
             Proximity operator class
         lbda_init: float
             Initial value of the relaxation parameter
-        regularised_approx: bool (default is 'True')
-            Option to regularize with the approximation or not
         metric_call_period: int, (default is 5)
             the period on which the metrics are computed.
         metrics: dict, {'metric_name': [metric, if_early_stooping],} (optional)
@@ -45,7 +43,6 @@ class FISTA(Observable):
         self.lbda = self.t_old = lbda_init
         self.metric_call_period = metric_call_period
         Observable.__init__(self, ["cv_metrics"])
-        self.regularised_approx = regularised_approx
         for name, dic in metrics.iteritems():
             observer = MetricObserver(name, dic['metric'],
                                       dic['mapping'],
@@ -59,8 +56,7 @@ class FISTA(Observable):
         self.grad.get_grad(self.z_old)
         y_old = self.z_old - self.grad.inv_spec_rad * self.grad.grad
         self.x_new = self.prox.op(y_old,
-                                  extra_factor=self.grad.inv_spec_rad,
-                                  regularised_approx=self.regularised_approx)
+                                  extra_factor=self.grad.inv_spec_rad)
         self.z_new = self.x_old + self.lbda * (self.x_new - self.x_old)
         self.params_update()
         self.x_old = copy.deepcopy(self.x_new)
@@ -105,9 +101,9 @@ class FISTA(Observable):
         metrics = {}
         for obs in self._observers['cv_metrics']:
             metrics[obs.name] = obs.retrieve_metrics()
+        self.x_final = self.grad.linear_cls.adj_op(self.z_new)
+        self.y_final = self.z_new
         self.metrics = metrics
-        self.x_final = self.z_new
-
 
 class CondatVu(Observable):
     """ Condat-Vu primal dual optimisation algorithm.
@@ -115,7 +111,7 @@ class CondatVu(Observable):
     def __init__(self, x, y, grad, prox, prox_dual, linear, sigma, tau,
                  rho=1.0, rho_update=None, sigma_update=None, tau_update=None,
                  extra_factor=1.0, extra_factor_update=None,
-                 regularised_approx=True, metric_call_period=5, metrics={}):
+                 metric_call_period=5, metrics={}):
         """ Init.
 
         Parameters
@@ -146,8 +142,6 @@ class CondatVu(Observable):
             Proximal primal parameter update method
         extra_factor_update:
             Extra factor passed to the dual proximity operator update
-        regularised_approx: bool (default is 'True')
-            Option to regularize with the approximation or not
         metric_call_period: int, (default is 5)
             the period on which the metrics are computed.
         metrics: dict, {'metric_name': [metric, if_early_stooping],} (optional)
@@ -168,10 +162,8 @@ class CondatVu(Observable):
         self.tau_update = tau_update
         self.extra_factor = 1.0
         self.extra_factor_update = extra_factor_update
-        self.regularised_approx = regularised_approx
         self.metric_call_period = metric_call_period
         Observable.__init__(self, ["cv_metrics"])
-        self.regularised_approx = regularised_approx
         for name, dic in metrics.iteritems():
             observer = MetricObserver(name, dic['metric'],
                                       dic['mapping'],
@@ -188,11 +180,10 @@ class CondatVu(Observable):
                   self.linear.adj_op(self.y_old))
         x_prox = self.prox.op(x_tmp)
         y_tmp = (self.y_old + self.sigma *
-                  self.linear.op(2 * x_prox - self.x_old))
+                self.linear.op(2 * x_prox - self.x_old))
         y_prox = (y_tmp - self.sigma *
                   self.prox_dual.op(y_tmp / self.sigma,
-                                    extra_factor=(1/self.sigma),
-                                    regularised_approx=self.regularised_approx))
+                                    extra_factor=(1/self.sigma)))
         self.x_new = self.rho * x_prox + (1 - self.rho) * self.x_old
         self.y_new = self.rho * y_prox + (1 - self.rho) * self.y_old
         np.copyto(self.x_old, self.x_new)
@@ -241,6 +232,6 @@ class CondatVu(Observable):
         metrics = {}
         for obs in self._observers['cv_metrics']:
             metrics[obs.name] = obs.retrieve_metrics()
-        self.metrics = metrics
         self.x_final = self.x_new
         self.y_final = self.y_new
+        self.metrics = metrics

@@ -5,23 +5,16 @@
 # the CEA-CNRS-INRIA. Refer to the LICENSE file or to
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
 # for details.
-#
-#:Author: Samuel Farrens <samuel.farrens@gmail.com>
-#:Version: 1.1
-#:Date: 04/01/2017
 ##########################################################################
 """
 This module contains classses for defining algorithm operators and gradients.
-Based on work by Yinghao Ge and Fred Ngole.
 """
-
 # System import
 import copy
 import numpy as np
 import scipy.fftpack as pfft
 
 import pisap
-from pisap.base.utils import generic_l2_norm
 
 
 class GradBase(object):
@@ -93,11 +86,11 @@ class GradBase(object):
 
         # Iterate until the L2 norm of x converges.
         for i in xrange(max_iter):
-            x_new = self.MtMX(x_old) / generic_l2_norm(x_old)
-            if(np.abs(generic_l2_norm(x_new) - generic_l2_norm(x_old)) < tolerance):
+            x_new = self.MtMX(x_old) / np.linalg.norm(x_old)
+            if(np.abs(np.linalg.norm(x_new) - np.linalg.norm(x_old)) < tolerance):
                 break
             x_old = copy.deepcopy(x_new)
-        self.spec_rad = coef_mul * generic_l2_norm(x_new)
+        self.spec_rad = coef_mul * np.linalg.norm(x_new)
         self.inv_spec_rad = 1.0 / self.spec_rad
 
     def MtMX(self, x):
@@ -141,7 +134,7 @@ class GradBase(object):
 
         Calculates M^T (MX - Y)
         """
-        self.grad = self.MtX(self.MX(x) - self.y) # self.y can be a 2D array or a vector
+        self.grad = self.MtX(self.MX(x) - self.y)
 
 
 class Grad2DAnalysis(GradBase):
@@ -174,7 +167,8 @@ class Grad2DAnalysis(GradBase):
 
         This method sets the initial value of x to an arrray of random values
         """
-        return np.random.random((self.ft_cls.img_size,self.ft_cls.img_size)).astype(np.complex)
+        shape = (self.ft_cls.img_size, self.ft_cls.img_size)
+        return np.random.random(shape).astype(np.complex)
 
     def MX(self, x):
         """ MX
@@ -231,7 +225,7 @@ class Grad2DSynthesis(GradBase):
         self.y = data
         if isinstance(ft_cls, dict):
             if len(ft_cls) > 1:
-                raise valueerror("ft_cls in grad2danalyse should ether be a 1"
+                raise valueerror("ft_cls in grad2danalyse should ether be a"
                                  " 'key dict' or a 'fourier op class'")
             self.ft_cls = ft_cls.keys()[0](**ft_cls.values()[0])
         else:
@@ -244,10 +238,10 @@ class Grad2DSynthesis(GradBase):
 
         This method sets the initial value of x to an arrray of random values
         """
-        fake_data = np.zeros((self.ft_cls.img_size, self.ft_cls.img_size)).astype(np.complex)
-        trf = self.linear_cls.op(fake_data)
-        trf._data = np.random.random(len(trf._data)).astype(np.complex)
-        return trf
+        shape = (self.ft_cls.img_size, self.ft_cls.img_size)
+        fake_data = np.zeros(shape).astype(np.complex)
+        wt_coef = self.linear_cls.op(fake_data)
+        return np.random.random(len(wt_coef)).astype(np.complex)
 
     def MX(self, alpha):
         """ MX

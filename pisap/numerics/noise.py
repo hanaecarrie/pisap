@@ -10,18 +10,15 @@
 #:Version: 1.1
 #:Date: 04/01/2017
 ##########################################################################
-
 """
 This module contains methods for adding and removing noise from data.
 """
-
 # System import
 import numpy as np
 
 # Package import
 import pisap
 from pisap.stats import sigma_mad
-from pisap.numerics.linears import Dictionary
 
 
 def add_noise(image, sigma=1.0, noise_type="gauss"):
@@ -50,7 +47,7 @@ def add_noise(image, sigma=1.0, noise_type="gauss"):
     """
     if not isinstance(image, pisap.Image):
         image = pisap.Image(data=image)
-    
+
     if noise_type not in ('gauss', 'poisson'):
         raise ValueError('Invalid noise type. Options are "gauss" or'
                          '"poisson"')

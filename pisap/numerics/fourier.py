@@ -10,11 +10,11 @@
 This module contains classses for defining algorithm Fourier transform operators
 for both case equispaced and non-equasipaced sampling
 """
-
 import numpy as np
 import scipy.fftpack as pfft
 import pynfft
 from pisap.base.utils import convert_locations_to_mask
+
 
 class FourierBase(object):
     """ Basic gradient class

@@ -35,7 +35,7 @@ class Observable(object):
         self._observers = {}
 
         # Set allowed signals
-        for signal in signals :
+        for signal in signals:
             self._allowed_signals.append(signal)
             self._observers[signal] = []
 
@@ -68,7 +68,7 @@ class Observable(object):
             an obervation function to be removed.
         """
         self._is_allowed_event(signal)
-        self._remove_observer(signal,observer)
+        self._remove_observer(signal, observer)
 
     def notify_observers(self, signal, **kwargs):
         """ Notify observers of a given signal.
@@ -83,11 +83,10 @@ class Observable(object):
         Returns
         -------
         out: bool
-            Fasle if a notification is in progress,
-            otherwise True.
+            False if a notification is in progress, otherwise True.
         """
         # Chack if a notification if in progress
-        if self._locked :
+        if self._locked:
             return False
 
         # Set the lock
@@ -101,7 +100,7 @@ class Observable(object):
             setattr(signal_to_be_notified, name, value)
 
         # Notify all the observers
-        for observer in self._observers[signal] :
+        for observer in self._observers[signal]:
             observer(signal_to_be_notified)
 
         # Unlock the notification process
@@ -131,7 +130,7 @@ class Observable(object):
         signal: str
             a signal.
         """
-        if signal not in self._allowed_signals :
+        if signal not in self._allowed_signals:
             raise Exception("Signal '{0}' is not allowed for '{1}'.".format(
                 signal, type(self)))
 

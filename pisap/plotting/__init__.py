@@ -10,4 +10,4 @@
 """
 
 from .image import plot_data
-from .optimization import plot_cost
+from .transform import plot_transform

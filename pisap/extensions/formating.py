@@ -5,24 +5,26 @@
 # http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html
 # for details.
 ##########################################################################
+
 """
 This module contains all the function to flatten properly the cube from a ISAP
 .fits raw data.
 """
+
 import numpy as np
 
 
 ###
 # HELPERS
 
-## GETTERS
+# GETTERS
 
 def get_hbl(A):
     """ Return the half-bottom-left of the given array.
     """
     nx, _ = A.shape
     l = nx / 2
-    return A[l:,:l]
+    return A[l:, :l]
 
 
 def get_hbr(A):
@@ -30,7 +32,7 @@ def get_hbr(A):
     """
     nx, _ = A.shape
     l = nx / 2
-    return A[l:,l:]
+    return A[l:, l:]
 
 
 def get_htl(A):
@@ -38,7 +40,7 @@ def get_htl(A):
     """
     nx, _ = A.shape
     l = nx / 2
-    return A[:l,:l]
+    return A[:l, :l]
 
 
 def get_htr(A):
@@ -46,7 +48,7 @@ def get_htr(A):
     """
     nx, _ = A.shape
     l = nx / 2
-    return A[:l,l:]
+    return A[:l, l:]
 
 
 def get_hr(A):
@@ -54,7 +56,7 @@ def get_hr(A):
     """
     nx, _ = A.shape
     l = nx / 2
-    return A[:,l:]
+    return A[:, l:]
 
 
 def get_hl(A):
@@ -62,7 +64,7 @@ def get_hl(A):
     """
     nx, _ = A.shape
     l = nx / 2
-    return A[:,:l]
+    return A[:, :l]
 
 
 def get_hb(A):
@@ -70,7 +72,7 @@ def get_hb(A):
     """
     nx, _ = A.shape
     l = nx / 2
-    return A[l:,:]
+    return A[l:, :]
 
 
 def get_ht(A):
@@ -78,16 +80,17 @@ def get_ht(A):
     """
     nx, _ = A.shape
     l = nx / 2
-    return A[:l,:]
+    return A[:l, :]
 
-## SETTERS
+# SETTERS
+
 
 def set_hbl(A, a):
     """ Return the half-bottom-left of the given array.
     """
     nx, _ = A.shape
     l = nx / 2
-    A[l:,:l] = a
+    A[l:, :l] = a
 
 
 def set_hbr(A, a):
@@ -95,7 +98,7 @@ def set_hbr(A, a):
     """
     nx, _ = A.shape
     l = nx / 2
-    A[l:,l:] = a
+    A[l:, l:] = a
 
 
 def set_htl(A, a):
@@ -103,7 +106,7 @@ def set_htl(A, a):
     """
     nx, _ = A.shape
     l = nx / 2
-    A[:l,:l] = a
+    A[:l, :l] = a
 
 
 def set_htr(A, a):
@@ -111,7 +114,7 @@ def set_htr(A, a):
     """
     nx, _ = A.shape
     l = nx / 2
-    A[:l,l:] = a
+    A[:l, l:] = a
 
 
 def set_hr(A, a):
@@ -119,7 +122,7 @@ def set_hr(A, a):
     """
     nx, _ = A.shape
     l = nx / 2
-    A[:,l:] = a
+    A[:, l:] = a
 
 
 def set_hl(A, a):
@@ -127,7 +130,7 @@ def set_hl(A, a):
     """
     nx, _ = A.shape
     l = nx / 2
-    A[:,:l] = a
+    A[:, :l] = a
 
 
 def set_hb(A, a):
@@ -135,7 +138,7 @@ def set_hb(A, a):
     """
     nx, _ = A.shape
     l = nx / 2
-    A[l:,:] = a
+    A[l:, :] = a
 
 
 def set_ht(A, a):
@@ -143,7 +146,7 @@ def set_ht(A, a):
     """
     nx, _ = A.shape
     l = nx / 2
-    A[:l,:] = a
+    A[:l, :] = a
 
 ###
 # FLATTEN
@@ -151,13 +154,15 @@ def set_ht(A, a):
 
 def flatten_undecimated_n_bands(cube, trf):
     """ Flatten the decomposition coefficients from a 'cube' to a vector.
-        'flatten_undecimated_n_bands' concern the 'cube' where each layer correspond to a
+        'flatten_undecimated_n_bands' concern the 'cube' where each layer
+        correspond to a
         undecimated band. We can have multiple bands per scale, which lead to
         nb_scale * nb_band_per_scale for one dimension.
 
         Parameters
         ----------
-        cube: np.ndarray, the cube that containes the decomposition coefficients.
+        cube: np.ndarray, the cube that containes the decomposition
+        coefficients.
 
         Return:
         --------
@@ -168,13 +173,15 @@ def flatten_undecimated_n_bands(cube, trf):
 
 def flatten_decimated_1_bands(cube, trf):
     """ Flatten the decomposition coefficients from a 'cube' to a vector.
-        'flatten_decimated_1_bands' concern the 'cube' where it's actually a 2d-array like
+        'flatten_decimated_1_bands' concern the 'cube' where it's actually a
+        2d-array like
         the classic wavelet 2d-transform of 1 bands. It has the same formating
         than the 3 bands but the 'v' and 'h' bands or set to 0.
 
         Parameters
         ----------
-        cube: np.ndarray, the cube that containes the decomposition coefficients.
+        cube: np.ndarray, the cube that containes the decomposition
+        coefficients.
 
         Return:
         --------
@@ -184,18 +191,20 @@ def flatten_decimated_1_bands(cube, trf):
     for i in range(trf.nb_scale-1):
         pieces.append(get_htl(cube).flatten())
         cube = get_hbr(cube)
-    pieces.append(cube.flatten()) # get approx
+    pieces.append(cube.flatten())  # get approx
     return np.concatenate(pieces)
 
 
 def flatten_decimated_3_bands(cube, trf):
     """ Flatten the decomposition coefficients from a 'cube' to a vector.
-        'flatten_decimated_3_bands' concern the 'cube' where it's actually a 2d-array like
+        'flatten_decimated_3_bands' concern the 'cube' where it's actually
+        a 2d-array like
         the classic wavelet 2d-transform of 3 bands.
 
         Parameters
         ----------
-        cube: np.ndarray, the cube that containes the decomposition coefficients.
+        cube: np.ndarray, the cube that containes the decomposition
+        coefficients.
 
         Return:
         --------
@@ -207,17 +216,19 @@ def flatten_decimated_3_bands(cube, trf):
         pieces.append(get_hbr(cube).flatten())
         pieces.append(get_hbl(cube).flatten())
         cube = get_htl(cube)
-    pieces.append(cube.flatten()) # get approx
+    pieces.append(cube.flatten())  # get approx
     return np.concatenate(pieces)
 
 
 def flatten_vector(cube, trf):
     """ Flatten the decomposition coefficients from a 'cube' to a vector.
-        'flatten_vector' concern the 'curvelet-cube' where it's already a vector.
+        'flatten_vector' concern the 'curvelet-cube' where it's already
+        a vector.
 
         Parameters
         ----------
-        cube: np.ndarray, the cube that containes the decomposition coefficients.
+        cube: np.ndarray, the cube that containes the decomposition
+        coefficients.
 
         Return:
         --------
@@ -245,7 +256,8 @@ def flatten_decimated_feauveau(cube, trf):
 
         Parameters
         ----------
-        cube: np.ndarray, the cube that containes the decomposition coefficients.
+        cube: np.ndarray, the cube that containes the decomposition
+        coefficients.
 
         Return:
         --------
@@ -256,7 +268,7 @@ def flatten_decimated_feauveau(cube, trf):
         pieces.append(get_hbl(cube).flatten())
         pieces.append(get_hr(cube).flatten())
         cube = get_htl(cube)
-    pieces.append(cube.flatten()) # get approx
+    pieces.append(cube.flatten())  # get approx
     return np.concatenate(pieces)
 
 
@@ -296,13 +308,14 @@ def inflated_undecimated_n_bands(trf):
 
         Parameters
         ----------
-        vector: np.ndarray, the vector that containes the decomposition coefficients.
+        vector: np.ndarray, the vector that containes the decomposition
+        coefficients.
 
         Return:
         --------
         data: np.ndarray, the flatten 'cube'.
     """
-    return np.copy(trf._data.reshape(trf.cube_shape))
+    return np.copy(trf._analysis_data.reshape(trf._analysis_shape))
 
 
 def inflated_decimated_1_bands(trf):
@@ -313,21 +326,22 @@ def inflated_decimated_1_bands(trf):
 
         Parameters
         ----------
-        vector: np.ndarray, the vector that containes the decomposition coefficients.
+        vector: np.ndarray, the vector that containes the decomposition
+        coefficients.
 
         Return:
         --------
         data: np.ndarray, the flatten 'cube'.
     """
-    cube = np.zeros(trf.cube_shape, dtype=np.complex)
+    cube = np.zeros(trf._analysis_shape, dtype=trf._analysis_data.dtype)
     tmp = cube
     for ks in range(trf.nb_scale-1):
-        set_htl(tmp, trf.get_band(ks, 0))
+        set_htl(tmp, trf[ks, 0])
         if ks == ((trf.nb_scale-1)-1):
             break
         else:
             tmp = get_hbr(tmp)
-    set_hbr(tmp, trf.get_band(trf.nb_scale-1, 0)) #set approx
+    set_hbr(tmp, trf[trf.nb_scale-1, 0])  # set approx
     return cube
 
 
@@ -338,23 +352,24 @@ def inflated_decimated_3_bands(trf):
 
         Parameters
         ----------
-        vector: np.ndarray, the vector that containes the decomposition coefficients.
+        vector: np.ndarray, the vector that containes the decomposition
+        coefficients.
 
         Return:
         --------
         data: np.ndarray, the flatten 'cube'.
     """
-    cube = np.zeros(trf.cube_shape, dtype=np.complex)
+    cube = np.zeros(trf._analysis_shape, dtype=trf._analysis_data.dtype)
     tmp = cube
     for ks in range(trf.nb_scale-1):
-        set_htr(tmp, trf.get_band(ks, 0))
-        set_hbr(tmp, trf.get_band(ks, 1))
-        set_hbl(tmp, trf.get_band(ks, 2))
+        set_htr(tmp, trf[ks, 0])
+        set_hbr(tmp, trf[ks, 1])
+        set_hbl(tmp, trf[ks, 2])
         if ks == ((trf.nb_scale-1)-1):
             break
         else:
             tmp = get_htl(tmp)
-    set_htl(tmp, trf.get_band(trf.nb_scale-1, 0)) #set approx
+    set_htl(tmp, trf[trf.nb_scale-1, 0])  # set approx
     return cube
 
 
@@ -363,14 +378,15 @@ def inflated_vector(trf):
         'inflated_vector' concern the vector where it's encode a curvelet
         Parameters
         ----------
-        vector np.ndarray, the vector that containes the decomposition coefficients.
+        vector np.ndarray, the vector that containes the decomposition
+        coefficients.
 
         Return:
         --------
         data: np.ndarray, the flatten 'cube'.
     """
     metadata_len = 1 + trf.nb_scale + 2 * trf.nb_band_per_scale.sum()
-    cube = np.zeros(len(trf._data) + metadata_len)
+    cube = np.zeros(len(trf._analysis_data) + metadata_len)
     cube[0] = trf.nb_scale
     cube[1:1+trf.nb_scale] = trf.nb_band_per_scale
     cube_padd = 1 + trf.nb_scale
@@ -383,7 +399,7 @@ def inflated_vector(trf):
             cube_padd += 1
             cube[cube_padd] = Ny
             cube_padd += 1
-            tmp = trf.get_band(ks, kb).flatten()
+            tmp = trf[ks, kb].flatten()
             cube[cube_padd:cube_padd+trf.bands_lengths[ks, kb]] = tmp
             cube_padd += (Nx * Ny)
             data_padd += (Nx * Ny)
@@ -397,22 +413,23 @@ def inflated_decimated_feauveau(trf):
 
         Parameters
         ----------
-        vector: np.ndarray, the vector that containes the decomposition coefficients.
+        vector: np.ndarray, the vector that containes the decomposition
+        coefficients.
 
         Return:
         --------
         data: np.ndarray, the flatten 'cube'.
     """
-    cube = np.zeros(trf.cube_shape, dtype=np.complex)
+    cube = np.zeros(trf._analysis_shape, dtype=trf._analysis_data.dtype)
     tmp = cube
     for ks in range(trf.nb_scale-1):
-        set_hbl(tmp, trf.get_band(ks, 0))
-        set_hr(tmp, trf.get_band(ks, 1))
+        set_hbl(tmp, trf[ks, 0])
+        set_hr(tmp, trf[ks, 1])
         if ks == ((trf.nb_scale-1)-1):
             break
         else:
             tmp = get_htl(tmp)
-    set_htl(tmp, trf.get_band(trf.nb_scale-1, 0)) #set approx
+    set_htl(tmp, trf[trf.nb_scale-1, 0])  # set approx
     return cube
 
 
@@ -442,19 +459,14 @@ def inflated_pywt_haar(trf):
 ###
 # FORMATING FCTS INDEXES
 
+FLATTENING_FCTS = [flatten_undecimated_n_bands,
+                   flatten_decimated_1_bands,
+                   flatten_decimated_3_bands,
+                   flatten_vector,
+                   flatten_decimated_feauveau]
 
-FLATTENING_FCTS = {0: flatten_undecimated_n_bands,
-                   1: flatten_decimated_1_bands,
-                   2: flatten_decimated_3_bands,
-                   3: flatten_vector,
-                   4: flatten_decimated_feauveau,
-                   -1: flatten_pywt_haar,
-                  }
-
-INFLATING_FCTS = {0: inflated_undecimated_n_bands,
-                  1: inflated_decimated_1_bands,
-                  2: inflated_decimated_3_bands,
-                  3: inflated_vector,
-                  4: inflated_decimated_feauveau,
-                  -1: inflated_pywt_haar,
-                  }
+INFLATING_FCTS = [inflated_undecimated_n_bands,
+                  inflated_decimated_1_bands,
+                  inflated_decimated_3_bands,
+                  inflated_vector,
+                  inflated_decimated_feauveau]

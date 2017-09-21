@@ -16,4 +16,3 @@ from .info import __version__
 from pisap.base import io
 from pisap.base.image import Image
 import pisap.extensions
-
