@@ -68,8 +68,8 @@ def grid_search(func, param_grid, wrapper=None, n_jobs=1, verbose=0):
             `wrapper(func, **kwargs)`
         n_jobs: int (default: 1),
             The maximum number of concurrently running jobs, such as the number
-            of Python worker processes when backend=”multiprocessing” or the
-            size of the thread-pool when backend=”threading”. If -1 all CPUs
+            of Python worker processes when backend=multiprocessing or the
+            size of the thread-pool when backend=threading. If -1 all CPUs
             are used. If 1 is given, no parallel computing code is used at all,
             which is useful for debugging. For n_jobs below -1,
             (n_cpus + 1 + n_jobs) are used. Thus for n_jobs = -2,
