@@ -4,7 +4,8 @@ import numpy as np
 
 import pisap
 from pisap.data import get_sample_data
-from pisap.numerics.fourier import NFFT, FFT, convert_mask_to_locations, min_max_normalize
+from pisap.numerics.fourier import NFFT, FFT
+from pisap.base.utils import convert_mask_to_locations, min_max_normalize
 
 
 def trunc_to_zero(data, eps=1.0e-7):
