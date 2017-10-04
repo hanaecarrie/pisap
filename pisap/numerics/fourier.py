@@ -117,15 +117,16 @@ class NFFT(FourierBase):
     ----------
     samples_locations :  np.ndarray
         The subsampling mask in the Fourier domain.
-    img_size : int
-        Image size
+    img_shape: tuple of int, shape of the image, not necessarly
+        a square matrix
     """
 
-    def __init__(self, samples_locations, img_size):
+    def __init__(self, samples_locations, img_shape):
         """ Initilize the Grad2DSynthese class.
         """
-        self.plan = pynfft.NFFT(N = (img_size, img_size), M=len(samples_locations))
-        self.img_size = img_size
+        self.plan = pynfft.NFFT(N = img_shape, M=len(samples_locations)) 
+        #self.plan = pynfft.NFFT(N = (img_size, img_size), M=samples_locations.shape[0])
+        self.img_shape = img_shape
         self.samples_locations = samples_locations
         self.plan.x = self.samples_locations
         self.plan.precompute()
