@@ -220,9 +220,10 @@ def sparse_rec_condat_vu(
         # Perform optimisation with new weights
         opt.iterate(max_iter=max_nb_of_iter)
 
-    linear_op.transform.analysis_data = opt.y_final
+    linear_op.set_coeff(opt.y_final)
 
-    return Image(data=opt.x_final), linear_op.transform, opt.metrics
+    return Image(data=opt.x_final), linear_op, opt.metrics
+    #XXX linear_op.transform -> linear_op for DL
 
 
 def sparse_rec_fista(

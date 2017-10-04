@@ -76,6 +76,9 @@ class Wavelet(object):
             raise ValueError("Unknown tranformation '{0}'.".format(wavelet))
         self.transform = WaveletTransformBase.REGISTRY[wavelet](
             nb_scale=nb_scale, verbose=0)
+            
+    def set_coeff(self, coeff):
+        self.transform.analysis_data = coeff
 
     def op(self, data):
         """ Operator.
@@ -170,6 +173,10 @@ class DictionaryLearningWavelet(object):
         self.atoms = atoms
         self.type_decomposition = type_decomposition
         self.img_shape = img_shape
+        self.coeff = self.op(numpy.zeros(img_shape))
+        
+    def set_coeff(self, coeff):
+        self.coeff = coeff
 
     def op(self, data): #XXX works for square patches only!
         """ Operator.
@@ -197,7 +204,8 @@ class DictionaryLearningWavelet(object):
             patches_shape = (patches_size,patches_size)
             coeffs = self.dictionary.transform(
                         numpy.nan_to_num(extract_paches_from_2d_images(data, patches_shape)))
-        return numpy.array(coeffs).flatten()
+            self.coeff = numpy.array(coeffs).flatten()
+        return self.coeff
 
     def adj_op(self, coeffs, dtype="array"): #XXX works for square patches only!
         """ Adjoint operator.
