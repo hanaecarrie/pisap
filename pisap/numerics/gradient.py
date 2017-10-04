@@ -86,7 +86,6 @@ class GradBase(object):
 
         # Iterate until the L2 norm of x converges.
         for i in xrange(max_iter):
-            print(np.linalg.norm(x_old))
             x_new = self.MtMX(x_old) / np.linalg.norm(x_old)
             if(np.abs(np.linalg.norm(x_new) - np.linalg.norm(x_old)) < tolerance):
                 break
@@ -156,7 +155,7 @@ class Grad2DAnalysis(GradBase):
         self.y = data
         if isinstance(ft_cls, dict):
             if len(ft_cls) > 1:
-                raise ValueError("ft_cls in Grad2DAnalysis should ether be a 1"
+                raise ValueError("ft_cls in Grad2DAnalyse should ether be a 1"
                                  " 'key dict' or a 'fourier op class'")
             self.ft_cls = ft_cls.keys()[0](**ft_cls.values()[0])
         else:
@@ -226,7 +225,7 @@ class Grad2DSynthesis(GradBase):
         self.y = data
         if isinstance(ft_cls, dict):
             if len(ft_cls) > 1:
-                raise valueerror("ft_cls in Grad2DSynthesis should ether be a"
+                raise valueerror("ft_cls in grad2danalyse should ether be a"
                                  " 'key dict' or a 'fourier op class'")
             self.ft_cls = ft_cls.keys()[0](**ft_cls.values()[0])
         else:
