@@ -101,7 +101,7 @@ def sparse_rec_condat_vu(
     # Define the linear operator
     linear_op = linear_cls(**linear_kwargs)
 
-    img_shape = (grad_op.ft_cls.img_size, grad_op.ft_cls.img_size)
+    img_shape = grad_op.ft_cls.img_shape
 
     # Define the weights used during the thresholding in the dual domain
     if std_est_method == "image":
@@ -286,7 +286,7 @@ def sparse_rec_fista(
         print("-" * 20)
 
     # Define initial primal and dual solutions
-    shape = (grad_op.ft_cls.img_size, grad_op.ft_cls.img_size)
+    shape = grad_op.ft_cls.img_shape
     x_init = np.zeros(shape, dtype=np.complex)
     alpha = linear_op.op(x_init)
     alpha[...] = 0.0
