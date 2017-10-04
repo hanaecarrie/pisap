@@ -84,7 +84,6 @@ def subsampling_op(kspace, mask):
         of the mask 
     """
     row, col = np.where(mask==1)
-    kspace= kspace*mask
     samples = kspace[row,col]
     return samples
     
@@ -101,7 +100,7 @@ def subsampling_adj_op(samples, mask):
         kspace=np.ndarray of complex, 2d matrix, the undersampled kspace
     """
     row, col = np.where(mask==1)
-    kspace = mask
+    kspace = np.zeros(mask.shape).astype('complex128')
     kspace[row,col] = samples
     return kspace
     
