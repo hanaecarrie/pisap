@@ -167,7 +167,7 @@ class Grad2DAnalysis(GradBase):
 
         This method sets the initial value of x to an arrray of random values
         """
-        shape = (self.ft_cls.img_size, self.ft_cls.img_size)
+        shape = self.ft_cls.img_shape
         return np.random.random(shape).astype(np.complex)
 
     def MX(self, x):
@@ -238,7 +238,7 @@ class Grad2DSynthesis(GradBase):
 
         This method sets the initial value of x to an arrray of random values
         """
-        shape = (self.ft_cls.img_size, self.ft_cls.img_size)
+        shape = self.ft_cls.img_shape
         fake_data = np.zeros(shape).astype(np.complex)
         wt_coef = self.linear_cls.op(fake_data)
         return np.random.random(wt_coef.shape).astype(np.complex)
