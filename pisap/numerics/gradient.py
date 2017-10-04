@@ -86,6 +86,7 @@ class GradBase(object):
 
         # Iterate until the L2 norm of x converges.
         for i in xrange(max_iter):
+            print(np.linalg.norm(x_old))
             x_new = self.MtMX(x_old) / np.linalg.norm(x_old)
             if(np.abs(np.linalg.norm(x_new) - np.linalg.norm(x_old)) < tolerance):
                 break
@@ -155,7 +156,7 @@ class Grad2DAnalysis(GradBase):
         self.y = data
         if isinstance(ft_cls, dict):
             if len(ft_cls) > 1:
-                raise ValueError("ft_cls in Grad2DAnalyse should ether be a 1"
+                raise ValueError("ft_cls in Grad2DAnalysis should ether be a 1"
                                  " 'key dict' or a 'fourier op class'")
             self.ft_cls = ft_cls.keys()[0](**ft_cls.values()[0])
         else:
@@ -225,7 +226,7 @@ class Grad2DSynthesis(GradBase):
         self.y = data
         if isinstance(ft_cls, dict):
             if len(ft_cls) > 1:
-                raise valueerror("ft_cls in grad2danalyse should ether be a"
+                raise valueerror("ft_cls in Grad2DSynthesis should ether be a"
                                  " 'key dict' or a 'fourier op class'")
             self.ft_cls = ft_cls.keys()[0](**ft_cls.values()[0])
         else:
@@ -241,7 +242,7 @@ class Grad2DSynthesis(GradBase):
         shape = (self.ft_cls.img_size, self.ft_cls.img_size)
         fake_data = np.zeros(shape).astype(np.complex)
         wt_coef = self.linear_cls.op(fake_data)
-        return np.random.random(len(wt_coef)).astype(np.complex)
+        return np.random.random(wt_coef.shape).astype(np.complex)
 
     def MX(self, alpha):
         """ MX

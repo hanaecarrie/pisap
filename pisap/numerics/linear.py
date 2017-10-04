@@ -11,10 +11,11 @@ This module contains linears operators classes.
 """
 
 # System import
-import numpy
+import numpy as np
 from scipy.signal import convolve2d
 from sklearn.decomposition import sparse_encode
-from sklearn.feature_extraction.image import extract_patches_2d
+from sklearn.feature_extraction.image import extract_patches_2d, \
+                                             reconstruct_from_patches_2d
 
 # Package import
 import pisap.extensions.transform
@@ -132,37 +133,52 @@ class Wavelet(object):
             the L2 norm.
         """
         # Create fake data.
-        data_shape = numpy.asarray(data_shape)
+        data_shape = np.asarray(data_shape)
         data_shape += data_shape % 2
-        fake_data = numpy.zeros(data_shape)
+        fake_data = np.zeros(data_shape)
         fake_data[zip(data_shape / 2)] = 1
 
         # Call mr_transform.
         data = self.op(fake_data)
 
         # Compute the L2 norm
-        return numpy.linalg.norm(data)
+        return np.linalg.norm(data)
 
 
-class DictionnaryLearningWavelet(object):
+class DictionaryLearningWavelet(object):
     """ This class defines the leaned wavelet transform operator based on a
-    Dictionnay Learning procedure.
+    Dictionay Learning procedure.
     """
 
-    def __init__(self, atoms, img_size):
+    def __init__(self, atoms, image_size, alpha_transform=0.1,
+                 max_iter_transform=50, n_jobs_transform=1,
+                 verbose_transform=False):
         """ Initialize the Wavelet class.
 
         Parameters
         ----------
         atoms: ndarray,
             ndarray of three dimensions, defining the 2D patchs or images that
-            composed the dictionnary.
-        img_size: tuple of int,
-            the shape of the considered images.
+            composed the dictionary.
+        image_size: tuple of int,
+            size of the considerated image.
+        alpha_transform: float, (optional, default 1.0e-2)
+            the sparcity regulartization parameter for the sparse_encode in op.
+        max_iter_transform: int, (optional, default 100)
+            maximum number of iteration for the lasso minimization in the op.
+        n_jobs_transform: int, (optional, default -1)
+            Number of parallel jobs to run.
+        verbose_transform: int, (optional, default False)
+            level of verbose, contaminated all the subfunctions.
         """
-        self.img_size = img_size
         d1, d2, d3 = atoms.shape
+        self.size_patches = (d1, d2)
         self.dictionary = atoms.reshape(d3, d1*d2)
+        self.image_size = image_size
+        self.alpha_transform = alpha_transform
+        self.max_iter_transform = max_iter_transform
+        self.verbose_transform = verbose_transform
+        self.n_jobs_transform = n_jobs_transform
 
     def op(self, data):
         """ Operator.
@@ -179,10 +195,37 @@ class DictionnaryLearningWavelet(object):
         coeffs: ndarray
             The wavelet coefficients.
         """
-        patches = extract_patches_2d(data, self.img_size)
+        if np.any(np.iscomplex(data)):
+            r_coef = self._op_real_data(data.real)
+            i_coef = self._op_real_data(data.imag)
+            return r_coef + 1.j * i_coef
+        else:
+            return self._op_real_data(data.astype('float64'))
+
+    def _op_real_data(self, data):
+        """ Operator for real data, private method.
+
+        This method returns the input data convolved with the wavelet filter.
+
+        Parameters
+        ----------
+        data: ndarray
+            Input data array, a 2D image.
+
+        Returns
+        -------
+        coeffs: ndarray
+            The wavelet coefficients.
+        """
+        patches = extract_patches_2d(data, self.size_patches)
         d1, d2, d3 = patches.shape
-        data = patches.reshape(d3, d1*d2)
-        return sparse_encode(data, self.dictionary)
+        patches_reshaped = patches.reshape(d1, d2*d3)
+        coef = sparse_encode(
+                  patches_reshaped, self.dictionary,
+                  n_jobs=self.n_jobs_transform, alpha=self.alpha_transform,
+                  max_iter=self.max_iter_transform,
+                  verbose=self.verbose_transform)
+        return coef
 
     def adj_op(self, coefs, dtype="array"):
         """ Adjoint operator.
@@ -201,9 +244,17 @@ class DictionnaryLearningWavelet(object):
         -------
         ndarray reconstructed data.
         """
-        d1, d2 = coefs.shape
-        patches = coefs.reshape(np.sqrt(d2), np.sqrt(d2), d1)
-        img = reconstruct_from_patches_2d(patches, self.image_size)
+        patches = np.dot(coefs, self.dictionary)
+        d1, d2 = patches.shape
+        patches = patches.reshape(d1, int(np.sqrt(d2)), int(np.sqrt(d2)))
+        if np.any(np.iscomplex(patches)):
+            r_patches = patches.real
+            i_patches = patches.imag
+            r_img = reconstruct_from_patches_2d(r_patches, self.image_size)
+            i_img = reconstruct_from_patches_2d(i_patches, self.image_size)
+            img = r_img + 1.j * i_img
+        else:
+            img = reconstruct_from_patches_2d(patches.astype('float64'), self.image_size)
         if dtype == "array":
             return img
         return Image(data=img)
@@ -221,15 +272,15 @@ class DictionnaryLearningWavelet(object):
             the L2 norm.
         """
         # Create fake data.
-        data_shape = numpy.asarray(data_shape)
+        data_shape = np.asarray(data_shape)
         data_shape += data_shape % 2
-        fake_data = numpy.zeros(data_shape)
+        fake_data = np.zeros(data_shape)
         fake_data[zip(data_shape / 2)] = 1
 
         # Call mr_transform.
         data = self.op(fake_data)
 
         # Compute the L2 norm
-        return numpy.linalg.norm(data)
+        return np.linalg.norm(data)
 
 
