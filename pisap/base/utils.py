@@ -1,7 +1,7 @@
 """ Module that declare usefull metrics tools.
 """
 import numpy as np
-
+from sklearn.feature_extraction.image import extract_patches_2d
 
 def min_max_normalize(img):
     """ Center and normalize the given array.
@@ -50,3 +50,22 @@ def convert_locations_to_mask(samples_locations, img_shape):
     mask = np.zeros(img_shape)
     mask[samples_locations[:,0], samples_locations[:,1]] = 1
     return mask
+
+
+def extract_paches_from_2d_images(img, patch_shape): # XXX the patches need to be square for the reshape
+    """ Return the flattened patches from the 2d image.
+
+    Parameters:
+    -----------
+        img: np.ndarray of floats, the input 2d image
+        patch_shape: tuple of int, shape of the patches 
+    Returns:
+    -------
+        patches: np.ndarray of floats, a 2d matrix with
+        dim nb_patches*(patch.shape[0]*patch_shape[1])
+    """
+    patches  = extract_patches_2d(img, patch_shape)
+    patches = patches.reshape(patches.shape[0], -1)
+    patches -= np.mean(patches, axis=0)
+    patches /= np.std(patches, axis=0)
+    return patches
