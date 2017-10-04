@@ -65,15 +65,16 @@ class FFT(FourierBase):
     ----------
     samples_locations :  np.ndarray
         The subsampling mask in the Fourier domain.
-    img_size :
+    img_shape: tuple of int, shape of the image, not necessarly
+        a square matrix
     """
 
-    def __init__(self, samples_locations, img_size):
+    def __init__(self, samples_locations, img_shape):
         """ Initilize the Grad2DSynthese class.
         """
         self.samples_locations = samples_locations
-        self.img_size = img_size
-        self._mask = convert_locations_to_mask(self.samples_locations, img_size)
+        self.img_shape = img_shape
+        self._mask = convert_locations_to_mask(self.samples_locations, self.img_shape)
 
     def op(self, img):
         """ This method calculates Masked Fourier transform of the 2-D argument
