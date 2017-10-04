@@ -160,8 +160,8 @@ class WaveletTransformBase(object):
         """
         if self.verbose > 0 and self._data is not None:
             print("[info] Replacing existing input data array.")
-        if not all([e == data.shape[0] for e in data.shape]):
-            raise ValueError("Expect a square shape data.")
+        #if not all([e == data.shape[0] for e in data.shape]): #Check if we are in a wavelet trnasform mode or DL
+        #    raise ValueError("Expect a square shape data.")
         if data.ndim != 2:
             raise ValueError("Expect a two-dim data array.")
         if self.is_decimated and not (data.shape[0] // 2**(self.nb_scale) > 0):
