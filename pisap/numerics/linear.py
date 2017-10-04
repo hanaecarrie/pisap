@@ -11,15 +11,14 @@ This module contains linears operators classes.
 """
 
 # System import
-import numpy as np
+import numpy
 from scipy.signal import convolve2d
-from sklearn.decomposition import sparse_encode
-from sklearn.feature_extraction.image import extract_patches_2d, \
-                                             reconstruct_from_patches_2d
 
 # Package import
 import pisap.extensions.transform
 from pisap.base.transform import WaveletTransformBase
+from pisap.base.utils import extract_paches_from_2d_images
+from sklearn.feature_extraction.image import reconstruct_from_patches_2d
 
 
 class Identity():
@@ -133,16 +132,16 @@ class Wavelet(object):
             the L2 norm.
         """
         # Create fake data.
-        data_shape = np.asarray(data_shape)
+        data_shape = numpy.asarray(data_shape)
         data_shape += data_shape % 2
-        fake_data = np.zeros(data_shape)
+        fake_data = numpy.zeros(data_shape)
         fake_data[zip(data_shape / 2)] = 1
 
         # Call mr_transform.
         data = self.op(fake_data)
 
         # Compute the L2 norm
-        return np.linalg.norm(data)
+        return numpy.linalg.norm(data)
 
 
 class DictionaryLearningWavelet(object):
@@ -150,40 +149,33 @@ class DictionaryLearningWavelet(object):
     Dictionay Learning procedure.
     """
 
-    def __init__(self, atoms, image_size, alpha_transform=0.1,
-                 max_iter_transform=50, n_jobs_transform=1,
-                 verbose_transform=False):
+    def __init__(self, dictionary, atoms, img_shape, type_decomposition="prodscalar"):
         """ Initialize the Wavelet class.
 
         Parameters
         ----------
+        dictonary: sklearn MiniBatchDictionaryLearning object
+            containing the 'transform' method
         atoms: ndarray,
-            ndarray of three dimensions, defining the 2D patchs or images that
-            composed the dictionary.
-        image_size: tuple of int,
-            size of the considerated image.
-        alpha_transform: float, (optional, default 1.0e-2)
-            the sparcity regulartization parameter for the sparse_encode in op.
-        max_iter_transform: int, (optional, default 100)
-            maximum number of iteration for the lasso minimization in the op.
-        n_jobs_transform: int, (optional, default -1)
-            Number of parallel jobs to run.
-        verbose_transform: int, (optional, default False)
-            level of verbose, contaminated all the subfunctions.
+            ndarray of floats, 2d matrix dim nb_patches*nb_components,
+            the learnt atoms
+        img_shape= tuple of int, shape of the image
+            (not necessarly a square image)
+        type_decomposition: str, (default='prodscalar')
+            should be ['prodscalar', 'convol'], specify how the decomposition is
+            done.
         """
-        d1, d2, d3 = atoms.shape
-        self.size_patches = (d1, d2)
-        self.dictionary = atoms.reshape(d3, d1*d2)
-        self.image_size = image_size
-        self.alpha_transform = alpha_transform
-        self.max_iter_transform = max_iter_transform
-        self.verbose_transform = verbose_transform
-        self.n_jobs_transform = n_jobs_transform
+        #raise NotImplemented("plugg DL: WIP status for now")  # XXX
+        self.dictionary = dictionary
+        self.atoms = atoms
+        self.type_decomposition = type_decomposition
+        self.img_shape = img_shape
 
-    def op(self, data):
+    def op(self, data): #XXX works for square patches only!
         """ Operator.
 
-        This method returns the input data convolved with the wavelet filter.
+        This method returns the representation of the input data in the
+        learnt dictionary, that is to say the wavelet coefficients.
 
         Parameters
         ----------
@@ -192,72 +184,54 @@ class DictionaryLearningWavelet(object):
 
         Returns
         -------
-        coeffs: ndarray
-            The wavelet coefficients.
+        coeffs: ndarray of floats, 2d matrix dim nb_patches*nb_components,
+                the wavelet coefficients.
         """
-        if np.any(np.iscomplex(data)):
-            r_coef = self._op_real_data(data.real)
-            i_coef = self._op_real_data(data.imag)
-            return r_coef + 1.j * i_coef
+        coeffs = []
+        if self.type_decomposition == 'convol':
+            for atom in self.atoms:
+                if self.type_decomposition == 'convol':
+                    coeffs.append(convolve2d(data, atom))
         else:
-            return self._op_real_data(data.astype('float64'))
+            patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
+            patches_shape = (patches_size,patches_size)
+            coeffs = self.dictionary.transform(
+                        numpy.nan_to_num(extract_paches_from_2d_images(data, patches_shape)))
+        return numpy.array(coeffs).flatten()
 
-    def _op_real_data(self, data):
-        """ Operator for real data, private method.
-
-        This method returns the input data convolved with the wavelet filter.
-
-        Parameters
-        ----------
-        data: ndarray
-            Input data array, a 2D image.
-
-        Returns
-        -------
-        coeffs: ndarray
-            The wavelet coefficients.
-        """
-        patches = extract_patches_2d(data, self.size_patches)
-        d1, d2, d3 = patches.shape
-        patches_reshaped = patches.reshape(d1, d2*d3)
-        coef = sparse_encode(
-                  patches_reshaped, self.dictionary,
-                  n_jobs=self.n_jobs_transform, alpha=self.alpha_transform,
-                  max_iter=self.max_iter_transform,
-                  verbose=self.verbose_transform)
-        return coef
-
-    def adj_op(self, coefs, dtype="array"):
+    def adj_op(self, coeffs, dtype="array"): #XXX works for square patches only!
         """ Adjoint operator.
 
-        This method returns the reconsructed image.
+        This method returns the reconsructed image from the wavelet coefficients. 
 
         Parameters
         ----------
-        coefs: ndarray
-            The wavelet coefficients.
+        coeffs: ndarray of floats, 2d matrix dim nb_patches*nb_components,
+                the wavelet coefficients.
+                WARNING: CHECK THE COEFF DIMENSIONS!!!
+                         the 'op' method returns the right shape of coeffs
         dtype: str, default 'array'
             if 'array' return the data as a ndarray, otherwise return a
             pisap.Image.
 
         Returns
         -------
-        ndarray reconstructed data.
+        image_r: ndarray, the reconstructed data.
         """
-        patches = np.dot(coefs, self.dictionary)
-        d1, d2 = patches.shape
-        patches = patches.reshape(d1, int(np.sqrt(d2)), int(np.sqrt(d2)))
-        if np.any(np.iscomplex(patches)):
-            r_patches = patches.real
-            i_patches = patches.imag
-            r_img = reconstruct_from_patches_2d(r_patches, self.image_size)
-            i_img = reconstruct_from_patches_2d(i_patches, self.image_size)
-            img = r_img + 1.j * i_img
-        else:
-            img = reconstruct_from_patches_2d(patches.astype('float64'), self.image_size)
-        if dtype == "array":
-            return img
-        return Image(data=img)
+        nb_patches = int(len(coeffs)/self.atoms.shape[0])
+        patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
+        coeffs = coeffs.reshape(nb_patches, self.atoms.shape[0])
+        for atom in self.atoms:
+            if self.type_decomposition == 'convol':
+                #image = image
+                image = 0
+            else:
+                image = numpy.dot(coeffs, self.atoms)
+                image = image.reshape(nb_patches,patches_size, patches_size)
+                image_r = reconstruct_from_patches_2d(numpy.real(image), self.img_shape)
+                image_i = reconstruct_from_patches_2d(numpy.imag(image), self.img_shape)
+                #image += coeffs * atom
+        return image_r+1j*image_i
 
     def l2norm(self, data_shape):
         """ Compute the L2 norm.
@@ -272,15 +246,15 @@ class DictionaryLearningWavelet(object):
             the L2 norm.
         """
         # Create fake data.
-        data_shape = np.asarray(data_shape)
+        data_shape = numpy.asarray(data_shape)
         data_shape += data_shape % 2
-        fake_data = np.zeros(data_shape)
+        fake_data = numpy.zeros(data_shape)
         fake_data[zip(data_shape / 2)] = 1
 
         # Call mr_transform.
         data = self.op(fake_data)
 
         # Compute the L2 norm
-        return np.linalg.norm(data)
+        return numpy.linalg.norm(data)
 
 
