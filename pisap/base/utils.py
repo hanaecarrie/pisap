@@ -104,3 +104,22 @@ def subsampling_adj_op(samples, mask):
     kspace = mask
     kspace[row,col] = samples
     return kspace
+    
+def crop_sampling_scheme(sampling_scheme, img_shape):
+    """Crop the sampling scheme from a input sampling scheme
+    with an even wigth and hight
+    ---------
+    Inputs:
+    sampling_scheme -- np.ndarray of {0,1}, 2d matrix, the sampling scheme
+    ---------
+    Outputs:
+    sampling_scheme -- np.ndarray of {0,1}, 2d matrix, the cropped
+                       sampling scheme
+    """
+    h = img_shape[1]
+    w = img_shape[0]
+    ss_size=sampling_scheme.shape
+    sampling_scheme = sampling_scheme[
+                            ss_size[0]/2-int((w+1)/2):ss_size[0]/2+int((w)/2),
+                            ss_size[1]/2-int((h+1)/2):ss_size[1]/2+int((h)/2)]
+    return sampling_scheme
