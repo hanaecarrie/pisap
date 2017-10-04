@@ -69,3 +69,38 @@ def extract_paches_from_2d_images(img, patch_shape): # XXX the patches need to b
     patches -= np.mean(patches, axis=0)
     patches /= np.std(patches, axis=0)
     return patches
+    
+def subsampling_op(kspace, mask):
+    """ Return the samples from the Cartesian kspace after undersampling
+    with the mask
+
+    Parameters:
+    -----------
+        kspace: np.ndarray of complex, 2d matrix
+        mask: np.ndarray of int, {0,1} 2d matrix
+    Returns:
+    -------
+        samples=np.array of complex, column of size the number of samples
+        of the mask 
+    """
+    row, col = np.where(mask==1)
+    kspace= kspace*mask
+    samples = kspace[row,col]
+    return samples
+    
+def subsampling_adj_op(samples, mask):
+    """ Return the kspace corresponding to the samples and the 2d mask 
+
+    Parameters:
+    -----------
+        samples: np.array of complex,  column of size the number of samples
+        of the mask 
+        mask: np.ndarray of int, {0,1} 2d matrix
+    Returns:
+    -------
+        kspace=np.ndarray of complex, 2d matrix, the undersampled kspace
+    """
+    row, col = np.where(mask==1)
+    kspace = mask
+    kspace[row,col] = samples
+    return kspace
