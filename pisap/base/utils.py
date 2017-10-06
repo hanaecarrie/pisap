@@ -9,6 +9,7 @@ def min_max_normalize(img):
     ----------
     img: np.ndarray
     """
+    img=np.nan_to_num(img)
     min_img = img.min()
     max_img = img.max()
     return (img - min_img) / (max_img - min_img)
