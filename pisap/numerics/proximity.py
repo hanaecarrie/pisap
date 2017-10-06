@@ -17,6 +17,7 @@ This module contains classes of proximity operators for optimisation
 
 # System import
 import numpy as np
+import warnings
 
 # Package import
 from .noise import soft_thresholding
@@ -45,7 +46,8 @@ class Positive(object):
         np.ndarray all positive elements from input data
         """
         if np.issubsctype(data.dtype, np.complex):
-            raise ValueError("can't compare complex value")
+            warnings.warn('Casting complex128 data to float64 to compute positivity')
+            data = np.real(data).astype('float64')
         return data * (data > 0)
 
 
