@@ -50,6 +50,12 @@ class Dictionary(object):
          self.dico=MiniBatchDictionaryLearning(n_components=self.n_components,
                                                alpha=self.alpha,
                                                n_iter=self.n_iter)
+         # atoms on the real part
+         imgs_real=np.real(imgs_patches_flat_training)
+         # atoms on the imaginary part
+         imgs_imag=np.imag(imgs_patches_flat_training)
+                    
+                                              
          buffer = []
          index = 0
          print 'learning_atoms starting...'

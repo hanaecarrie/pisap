@@ -206,9 +206,12 @@ class DictionaryLearningWavelet(object):
 
             patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
             patches_shape = (patches_size,patches_size)
-            coeffs = self.dictionary.transform(
-                        numpy.nan_to_num(extract_paches_from_2d_images(data, patches_shape)))
-            self.coeff = numpy.array(coeffs).flatten()
+            patches_r = extract_paches_from_2d_images(numpy.real(data), patches_shape)
+            patches_i = extract_paches_from_2d_images(numpy.imag(data), patches_shape)
+            coeffs_r = self.dictionary.transform(numpy.nan_to_num(patches_r))
+            coeffs_i = self.dictionary.transform(numpy.nan_to_num(patches_i))
+            self.coeffs_shape = coeffs_i.shape
+            self.coeff = numpy.array(coeffs_r).flatten()+1j*numpy.array(coeffs_i).flatten()
         return self.coeff
 
     def adj_op(self, coeffs, dtype="array"): #XXX works for square patches only!
