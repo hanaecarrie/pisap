@@ -173,7 +173,8 @@ class DictionaryLearningWavelet(object):
         self.atoms = atoms
         self.type_decomposition = type_decomposition
         self.img_shape = img_shape
-        self.coeff = self.op(numpy.zeros(img_shape))
+        self.coeff = self.op(numpy.zeros(img_shape).astype('complex128'))
+        self.coeffs_shape = []
         
     def set_coeff(self, coeff):
         self.coeff = coeff
@@ -200,6 +201,9 @@ class DictionaryLearningWavelet(object):
                 if self.type_decomposition == 'convol':
                     coeffs.append(convolve2d(data, atom))
         else:
+	    self.coeffs_shape = coeffs.shape
+
+
             patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
             patches_shape = (patches_size,patches_size)
             coeffs = self.dictionary.transform(
@@ -228,7 +232,7 @@ class DictionaryLearningWavelet(object):
         """
         nb_patches = int(len(coeffs)/self.atoms.shape[0])
         patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
-        coeffs = coeffs.reshape(nb_patches, self.atoms.shape[0])
+        coeffs = coeffs.reshape(self.coeffs_shape)
         for atom in self.atoms:
             if self.type_decomposition == 'convol':
                 #image = image
