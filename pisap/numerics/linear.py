@@ -173,13 +173,13 @@ class DictionaryLearningWavelet(object):
         self.atoms = atoms
         self.type_decomposition = type_decomposition
         self.img_shape = img_shape
-        self.coeff = self.op(numpy.zeros(img_shape).astype('complex128'))
+        self.coeff = [] #self.op(numpy.zeros(img_shape))
         self.coeffs_shape = []
-        
+    
     def set_coeff(self, coeff):
         self.coeff = coeff
 
-    def op(self, data): #XXX works for square patches only!
+    def op(self, image): #XXX works for square patches only!
         """ Operator.
 
         This method returns the representation of the input data in the
@@ -196,22 +196,11 @@ class DictionaryLearningWavelet(object):
                 the wavelet coefficients.
         """
         coeffs = []
-        if self.type_decomposition == 'convol':
-            for atom in self.atoms:
-                if self.type_decomposition == 'convol':
-                    coeffs.append(convolve2d(data, atom))
-        else:
-	    self.coeffs_shape = coeffs.shape
-
-
-            patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
-            patches_shape = (patches_size,patches_size)
-            patches_r = extract_paches_from_2d_images(numpy.real(data), patches_shape)
-            patches_i = extract_paches_from_2d_images(numpy.imag(data), patches_shape)
-            coeffs_r = self.dictionary.transform(numpy.nan_to_num(patches_r))
-            coeffs_i = self.dictionary.transform(numpy.nan_to_num(patches_i))
-            self.coeffs_shape = coeffs_i.shape
-            self.coeff = numpy.array(coeffs_r).flatten()+1j*numpy.array(coeffs_i).flatten()
+        patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
+        patches_shape = (patches_size,patches_size)
+        patches = extract_paches_from_2d_images(image, patches_shape)
+        coeffs = self.dictionary.transform(numpy.nan_to_num(patches))
+        self.coeff = numpy.array(coeffs)
         return self.coeff
 
     def adj_op(self, coeffs, dtype="array"): #XXX works for square patches only!
@@ -233,20 +222,12 @@ class DictionaryLearningWavelet(object):
         -------
         image_r: ndarray, the reconstructed data.
         """
-        nb_patches = int(len(coeffs)/self.atoms.shape[0])
+        nb_patches = coeffs.shape[0]
         patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
-        coeffs = coeffs.reshape(self.coeffs_shape)
-        for atom in self.atoms:
-            if self.type_decomposition == 'convol':
-                #image = image
-                image = 0
-            else:
-                image = numpy.dot(coeffs, self.atoms)
-                image = image.reshape(nb_patches,patches_size, patches_size)
-                image_r = reconstruct_from_patches_2d(numpy.real(image), self.img_shape)
-                image_i = reconstruct_from_patches_2d(numpy.imag(image), self.img_shape)
-                #image += coeffs * atom
-        return image_r+1j*image_i
+        image = numpy.dot(coeffs, self.atoms)
+        image = image.reshape(nb_patches,patches_size, patches_size)
+        image = reconstruct_from_patches_2d(image, self.img_shape)
+        return image
 
     def l2norm(self, data_shape):
         """ Compute the L2 norm.
