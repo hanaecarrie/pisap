@@ -36,32 +36,30 @@ class Dictionary(object):
          self.dico=[] #initialization
          print self.__dict__
 
-    def learning_atoms(self, images):
-         """Learn the dictionary from the images 
+    def learning_atoms(self, images, option):
+         """Learn the dictionary from the complex images 
          -----------
          Inputs:
              images -- instance of class CamCanImages, the preprocessed
                  input images
+             option -- 'real' or 'complex'
          -----------
          Outputs:
              self.__dict__ -- updated attributes
          """
-         imgs_patches_flat_training=images.imgs_patches_flat[:images.size_training]
          self.dico=MiniBatchDictionaryLearning(n_components=self.n_components,
                                                alpha=self.alpha,
                                                n_iter=self.n_iter)
-         # atoms on the real part
-         imgs_real=np.real(imgs_patches_flat_training)
-         # atoms on the imaginary part
-         imgs_imag=np.imag(imgs_patches_flat_training)
-                    
-                                              
+         if option=='real':                                      
+             imgs=images.imgs_patches_flat_train_real
+         if option=='complex':
+             imgs=images.imgs_patches_flat_train_imag
          buffer = []
          index = 0
          print 'learning_atoms starting...'
          for _ in range(6):
-             for i in range(len(imgs_patches_flat_training)):
-                 patches=imgs_patches_flat_training[i]
+             for i in range(len(imgs)):
+                 patches=imgs[i]
                  index += 1
                  buffer.append(patches)
                  if index % 10 == 0:
@@ -70,6 +68,7 @@ class Dictionary(object):
                      self.dico.fit(patches)
                      buffer = []
          print 'learning_atoms ended!'
+
          self.atoms=self.dico.components_
          return(self.__dict__)
 
@@ -98,7 +97,7 @@ class Dictionary(object):
          """
          patch_shape=images.patch_shape
          plt.figure(figsize=(4.2, 4))
-         for i, patch in enumerate(self.atoms):
+         for i, patch in enumerate(self.dico.components_):
              plt.subplot(np.int(np.sqrt(self.n_components)),
                          np.int(np.sqrt(self.n_components)), i+1)
              plt.imshow(patch.reshape(patch_shape), cmap=plt.cm.gray,
