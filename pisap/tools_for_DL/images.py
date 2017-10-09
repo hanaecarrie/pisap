@@ -7,13 +7,13 @@ import os
 from nilearn.masking import compute_epi_mask
 from nilearn.image import load_img
 import matplotlib.pyplot as plt
-from sklearn.feature_extraction.image import extract_patches_2d
+from pisap.base.utils import extract_paches_from_2d_images
 from pisap.base.utils import min_max_normalize    
 
 import scipy.fftpack as pfft
 
 
-class CamcanImages(object):
+class CamcanImages_complex(object):
     """This class defines the input images of the CamCan database"""
     
     def __init__(self, data_path_begin, patch_shape, size_ratio_sets,num_slice):
@@ -69,7 +69,9 @@ class CamcanImages(object):
         self.size_training=int(size_ratio_sets[0]*self.nb_imgs)
         self.size_testing=int(size_ratio_sets[1]*self.nb_imgs)
         self.imgs=[] 
-        self.imgs_patches_flat=[] #initialization
+        self.imgs_patches_flat_train_real=[] #initialization
+        self.imgs_patches_flat_train_imag=[] #initialization
+        self.imgs_patches_flat_test=[]
         self.imgs_flat=[] #initialization
         self.masks=[] #initialization
         self.training_set=[] #initialization
@@ -80,7 +82,7 @@ class CamcanImages(object):
         print self.__dict__
 
 
-    def preprocessing(self):
+    def preprocessing_complex(self, sampling_scheme_path):
         """Preprocess the data with sklearn.extract_patches_2d to compute
         the patches and with nilearn to compute the masks
         ----------
@@ -99,7 +101,6 @@ class CamcanImages(object):
                 dim (w,h) of floats, list of maks
         """
         l=self.img_shape[0]*self.img_shape[1]
-        #l=self.h*self.h # XXX Square images
         print 'preprocessing starting...'
         for i in range(self.nb_imgs):
             #getting the path
@@ -110,8 +111,18 @@ class CamcanImages(object):
             img_i=load_img(data_filename_i).get_data()
             img_i=img_i[self.num_slice][:][:]
             #normalizing the image slice
-            #img_i=img_i[(self.w-1)/2-self.h/2:(self.w-1)/2+self.h/2,:] # XXX Square images
-            img_i=min_max_normalize(img_i)
+            sampling_scheme = self.get_sampling_scheme(sampling_scheme_path)
+            if i < self.size_training: # taking the zero order solution of undersampled references
+                img_i=min_max_normalize(img_i)
+                kspaceCS_i=np.fft.fft2(img_i)*pfft.fftshift(sampling_scheme)
+                kspaceCS_i=pfft.fftshift(kspaceCS_i)
+                img_i=pfft.ifft2(kspaceCS_i)
+                plt.figure()
+                plt.imshow(np.abs(img_i), cmap='gray')
+                plt.colorbar()
+                plt.show()
+            else:
+                img_i=min_max_normalize(img_i)
             #computing the corresponding mask
             mask_i=compute_epi_mask(data_filename_i)
             mask_i=os.path.join(mask_i)
@@ -120,14 +131,19 @@ class CamcanImages(object):
             self.masks.append(mask_i)
             self.imgs.append(img_i)
             #flattening the image slice
-            img_flat_i=np.reshape(img_i,l)
+            img_flat_i=img_i.flatten()
             self.imgs_flat.append(img_flat_i)
-            #extracting patches and flattening them
-            patches = extract_patches_2d(img_i, self.patch_shape)
-            patches = patches.reshape(patches.shape[0], -1)
-            patches -= np.mean(patches, axis=0)
-            patches /= np.std(patches, axis=0)
-            self.imgs_patches_flat.append(patches)
+            if i < self.size_training: 
+               #extracting real patches and flattening them
+               patches_real = extract_patches_from_2d_images(np.real(img_i), self.patch_shape)
+               self.imgs_patches_flat_train_real.append(patches_real)
+               #extracting imaginary patches and flattening them
+               patches_imag = extract_patches_from_2d_images(np.imag(img_i), self.patch_shape)
+               self.imgs_patches_flat_train_imag.append(patches_imag)
+            else: 
+               #extracting patches and flattening them
+               patches = extract_patches_from_2d_images(img_i, self.patch_shape)
+               self.imgs_patches_flat_test.append(patches)
             #progress bar
             a=i+1
             if a==1:
@@ -186,13 +202,10 @@ class CamcanImages(object):
         kspacesCS -- list len(size_testing) of 2darray dim (w,h) of floats,
             corresponding undersampled kspace of the images
         """
-        begin=self.size_training
-        end=self.nb_imgs
-        testing_set=self.imgs[begin:end]
         sampling_scheme = self.get_sampling_scheme(sampling_scheme_path)
         kspaceCS=[]
         for i in range(self.size_testing):
-            kspaceCS_i=np.fft.fft2(testing_set[i])*pfft.fftshift(sampling_scheme)
+            kspaceCS_i=np.fft.fft2(self.testing_set_ref[i])*pfft.fftshift(sampling_scheme)
             kspaceCS_i=pfft.fftshift(kspaceCS_i)
             kspaceCS.append(kspaceCS_i)
         return kspaceCS
