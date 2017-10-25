@@ -11,6 +11,13 @@
 .coverage
 .*
 
+# Data base #
+########################
+*.mat
+*.ipynb
+*.png
+*.npy
+
 # Folders #
 ###########
 build/

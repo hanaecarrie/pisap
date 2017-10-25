@@ -159,7 +159,7 @@ class Grad2DAnalysis(GradBase):
                                  " 'key dict' or a 'fourier op class'")
             self.ft_cls = ft_cls.keys()[0](**ft_cls.values()[0])
         else:
-            self.ft_cls = ft_cls
+            self.ft_cls = ft_cls(**ft_cls.values())
         self.get_spec_rad()
 
     def get_initial_x(self):

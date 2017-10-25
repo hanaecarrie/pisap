@@ -49,7 +49,7 @@ def _get_final_size(param_grid):
     return np.array([x for x in itertools.product(*tmp.values())]).sum()
 
 
-def grid_search(func, param_grid, wrapper=None, n_jobs=1, verbose=0):
+def grid_search(func, param_grid, do_not_touch, wrapper=None, n_jobs=1, verbose=0):
     """ Run `func` on the carthesian product of `param_grid`.
 
         Parameters:
@@ -61,7 +61,9 @@ def grid_search(func, param_grid, wrapper=None, n_jobs=1, verbose=0):
         param_grid: dict or list of dictionaries,
             Dictionary with parameters names (string) as keys and lists of
             parameter settings to try as values: the grids spanned by each
-            dictionary in the list are explored.
+            dictionary in the list are explored except the keys in do_not_touch.
+        do_not_touch: dict or list of parameters you don't want to loop over,
+            Dictionary with parameters names (string) are fixed parameters.
         wrapper: function, (default: None)
             Handle the call of func if some pre-process or post-process
             should be done. `wrapper` has a specific API:
@@ -98,6 +100,10 @@ def grid_search(func, param_grid, wrapper=None, n_jobs=1, verbose=0):
     for key, value in param_grid.iteritems():
         if not isinstance(value, list):
             param_grid[key] = [value]
+        else:
+            for key_do_not_touch in do_not_touch:
+                if key == key_do_not_touch:
+                    param_grid[key] = [value]
     list_kwargs = [dict(zip(param_grid, x))
                    for x in itertools.product(*param_grid.values())]
     # Run the reconstruction
@@ -110,7 +116,8 @@ def grid_search(func, param_grid, wrapper=None, n_jobs=1, verbose=0):
             n_jobs_used = n_jobs
         print(("Running grid_search for {0} candidates"
                " on {1} jobs").format(len(list_kwargs), n_jobs_used))
-    res = Parallel(n_jobs=n_jobs, verbose=verbose)(
+
+    Parallel(n_jobs=n_jobs, verbose=verbose)(
                    delayed(wrapper)(func, **kwargs)
                    for kwargs in list_kwargs)
-    return list_kwargs, res
+    return list_kwargs#, res

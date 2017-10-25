@@ -56,7 +56,7 @@ def convert_locations_to_mask(samples_locations, img_shape):
     return mask
 
 
-def extract_paches_from_2d_images(img, patch_shape): # XXX the patches need to be square for the reshape
+def extract_patches_from_2d_images(img, patch_shape): # XXX the patches need to be square for the reshape
     """ Return the flattened patches from the 2d image.
 
     Parameters:
@@ -70,8 +70,8 @@ def extract_paches_from_2d_images(img, patch_shape): # XXX the patches need to b
     """
     patches  = extract_patches_2d(img, patch_shape)
     patches = patches.reshape(patches.shape[0], -1)
-    patches -= np.mean(patches, axis=0)
-    patches /= np.std(patches, axis=0)
+    #patches -= np.mean(patches, axis=0)
+    #patches /= np.std(patches, axis=0)
     return patches
     
 def subsampling_op(kspace, mask):

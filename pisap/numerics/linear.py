@@ -17,7 +17,7 @@ from scipy.signal import convolve2d
 # Package import
 import pisap.extensions.transform
 from pisap.base.transform import WaveletTransformBase
-from pisap.base.utils import extract_paches_from_2d_images
+from pisap.base.utils import extract_patches_from_2d_images
 from sklearn.feature_extraction.image import reconstruct_from_patches_2d
 
 
@@ -198,7 +198,7 @@ class DictionaryLearningWavelet(object):
         coeffs = []
         patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
         patches_shape = (patches_size,patches_size)
-        patches = extract_paches_from_2d_images(image, patches_shape)
+        patches = extract_patches_from_2d_images(image, patches_shape)
         coeffs = self.dictionary.transform(numpy.nan_to_num(patches))
         self.coeff = numpy.array(coeffs)
         return self.coeff
@@ -297,9 +297,9 @@ class DictionaryLearningWavelet_complex(object):
             should be ['prodscalar', 'convol'], specify how the decomposition is
             done.
         """
-        coeff=numpy.add(self.DLW_r.op(numpy.real(image_complex)),
+        self.coeff=numpy.add(self.DLW_r.op(numpy.real(image_complex)),
                         1j*self.DLW_i.op(numpy.imag(image_complex)))
-        return (coeff)
+        return (self.coeff)
     
     def adj_op(self,coeff_complex):
         """ Initialize the Wavelet class.

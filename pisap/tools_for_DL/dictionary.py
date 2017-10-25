@@ -29,20 +29,21 @@ class Dictionary(object):
                  contains the matrix of learnt atoms
              dico -- sklearn MiniBatchDictionaryLearning object
          """
-         self.n_components=n_components
-         self.n_iter=n_iter
-         self.alpha=alpha
-         self.atoms=np.zeros(1) #initialization
-         self.dico=[] #initialization
+         self.n_components = n_components
+         self.n_iter = n_iter
+         self.alpha = alpha
+         self.atoms = np.zeros(1) #initialization
+         self.dico = [] #initialization
+         self.complex = False
          print self.__dict__
 
     def learning_atoms(self, images, option):
-         """Learn the dictionary from the complex images 
+         """Learn the dictionary from the complex images
          -----------
          Inputs:
              images -- instance of class CamCanImages, the preprocessed
                  input images
-             option -- 'real' or 'complex'
+             option -- 'real' or 'imaginary'
          -----------
          Outputs:
              self.__dict__ -- updated attributes
@@ -50,10 +51,12 @@ class Dictionary(object):
          self.dico=MiniBatchDictionaryLearning(n_components=self.n_components,
                                                alpha=self.alpha,
                                                n_iter=self.n_iter)
-         if option=='real':                                      
-             imgs=images.imgs_patches_flat_train_real
-         if option=='complex':
-             imgs=images.imgs_patches_flat_train_imag
+         if option=='real':
+             imgs = images.imgs_patches_flat_train_real
+             img_size_train = len(imgs)
+         if option == 'imaginary':
+             imgs = images.imgs_patches_flat_train_imag
+             img_size_train = len(imgs)
          buffer = []
          index = 0
          print 'learning_atoms starting...'
@@ -62,18 +65,17 @@ class Dictionary(object):
                  patches=imgs[i]
                  index += 1
                  buffer.append(patches)
-                 if index % 10 == 0:
-                     print(str(index)+'/'+str(6*images.size_training))
+                 if index % 100 == 0:
+                     print(str(index)+'/'+str(6*img_size_train))
                      patches = np.concatenate(buffer, axis=0)
                      self.dico.fit(patches)
                      buffer = []
          print 'learning_atoms ended!'
-
          self.atoms=self.dico.components_
-         return(self.__dict__)
+         return(self)
 
     def saving_atoms(self,title):
-         """Save the atoms into a .npy file 
+         """Save the atoms into a .npy file
          -----------
          Inputs:
              title -- string, the .npy file title
@@ -108,5 +110,3 @@ class Dictionary(object):
          plt.subplots_adjust(0.08, 0.02, 0.92, 0.85, 0.08, 0.23)
          plt.show()
          return(title)
-         
-         

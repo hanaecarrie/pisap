@@ -170,7 +170,6 @@ def ssim(test, ref, mask="auto", disp=False):
     else:
         return (mask * ssim).sum() / mask.sum()
 
-
 def snr(test, ref, mask=None, disp=False):
     """ Return SNR
 
