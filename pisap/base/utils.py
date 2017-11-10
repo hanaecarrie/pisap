@@ -1,7 +1,9 @@
 """ Module that declare usefull metrics tools.
 """
 import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.feature_extraction.image import extract_patches_2d
+from sklearn.decomposition import MiniBatchDictionaryLearning
 
 def min_max_normalize(img):
     """ Center and normalize the given array.
@@ -33,6 +35,136 @@ def convert_mask_to_locations(mask):
     return np.c_[row, col]
 
 
+def extract_patches_from_2d_images(img, patch_shape): #XXX the patches need to be square
+    """ Return the flattened patches from the 2d image.
+
+    Parameters:
+    -----------
+        img: np.ndarray of floats, the input 2d image
+        patch_shape: tuple of int, shape of the patches
+    Returns:
+    -------
+        patches: np.ndarray of floats, a 2d matrix with
+        -        dim nb_patches*(patch.shape[0]*patch_shape[1])
+    """
+    patches  = extract_patches_2d(img, patch_shape)
+    patches = patches.reshape(patches.shape[0], -1)
+    #patches -= np.mean(patches, axis=0)
+    #patches /= np.std(patches, axis=0)
+    return patches
+
+
+def generate_flat_patches(images_training_set,patch_size, option='real'):
+    """Learn the dictionary from the real/imaginary part or the module/phase of images
+    from the training set
+    -----------
+    Inputs:
+        images_training_set -- list of 2d matrix of complex values
+        patch_size -- int, width of square patches
+        option -- 'real' (default), 'imag' real/imaginary part or module/phase,
+            'complex'
+    -----------
+    Outputs:
+        flat_patches -- list of 1d array of flat patches (floats)
+    """
+    patch_shape = (patch_size, patch_size)
+    flat_patches=[]
+    print 'flat_patches starting...'
+    for i in range(len(images_training_set)):
+        if i%10 == 0:
+            print(i)
+        if option=='real':
+            img=np.real(images_training_set[i])
+        if option=='imag':
+            img=np.imag(images_training_set[i])
+        if option=='complex':
+            img=images_training_set[i]
+        patches_i=extract_patches_from_2d_images(min_max_normalize(img),patch_shape)
+        flat_patches.append(patches_i)
+    print 'flat_patches ended...'
+    return(flat_patches)
+
+def generate_dico(flat_patches, nb_atoms, alpha, n_iter):
+    """Learn the dictionary from the real/imaginary part or the module/phase of images
+    from the training set
+    -----------
+    Inputs:
+        flat_patches -- list of 1d array of flat patches (floats)
+        nb_atoms -- int, number of components of the dictionary
+        alpha -- float, regulation term (default=1)
+        n_iter -- int, number of iterations (default=100)
+    -----------
+    Outputs:
+        dico -- object
+    """
+    dico=MiniBatchDictionaryLearning(n_components=nb_atoms, alpha=alpha, n_iter=n_iter)
+    buffer = []
+    index = 0
+    print 'learning_atoms starting...'
+    for _ in range(6):
+        for i in range(len(flat_patches)):
+            index += 1
+            patches=flat_patches[i]
+            buffer.append(patches)
+            if index % 10 == 0:
+                print(str(index)+'/'+str(6*len(flat_patches)))
+                patches = np.concatenate(buffer, axis=0)
+                dico.fit(patches)
+                buffer = []
+    print 'learning_atoms ended!'
+    return(dico)
+    #RQ: atoms=dico.components_
+
+def plot_dico(dico, patch_size,title='Dictionary atoms'):
+    """Plot the learnt atoms
+    -----------
+    Inputs:
+     dico -- dictionary object
+     title -- string, (default='Dictionary atoms'), the .npy file title
+    -----------
+    Outputs:
+     nothing
+    """
+    patch_shape=(patch_size,patch_size)
+    n_components=dico.components_.shape[0]
+    plt.figure(figsize=(4.2, 4))
+    for i, patch in enumerate(dico.components_):
+        plt.subplot(np.int(np.sqrt(n_components)),
+                 np.int(np.sqrt(n_components)), i+1)
+        plt.imshow(patch.reshape(patch_shape), cmap=plt.cm.gray,
+                interpolation='nearest')
+        plt.xticks(())
+        plt.yticks(())
+    plt.suptitle(title, fontsize=16)
+    plt.subplots_adjust(0.08, 0.02, 0.92, 0.85, 0.08, 0.23)
+    plt.show()
+    return()
+
+def plot_img(image):
+    """Plot a given image
+    -----------
+    Inputs:
+     image -- 2d image of floats
+    -----------
+    Outputs:
+     nothing
+    """
+    plt.figure()
+    plt.imshow(image, cmap='gray')
+    plt.colorbar()
+    plt.show()
+
+def _normalize_localisations(loc):
+    """ Normalize localisation to [-0.5, 0.5[.
+    """
+    Kmax = loc.max()
+    Kmin = loc.min()
+    if Kmax < np.abs(Kmin):
+        return loc / (2 * np.abs(Kmin) )
+    else:
+        loc[loc == Kmax] = -Kmax
+        return loc / (2 * np.abs(Kmax) )
+
 def convert_locations_to_mask(samples_locations, img_shape):
     """ Return the converted the sampling locations as Cartesian mask.
 
@@ -56,24 +188,6 @@ def convert_locations_to_mask(samples_locations, img_shape):
     return mask
 
 
-def extract_patches_from_2d_images(img, patch_shape): # XXX the patches need to be square for the reshape
-    """ Return the flattened patches from the 2d image.
-
-    Parameters:
-    -----------
-        img: np.ndarray of floats, the input 2d image
-        patch_shape: tuple of int, shape of the patches 
-    Returns:
-    -------
-        patches: np.ndarray of floats, a 2d matrix with
-        dim nb_patches*(patch.shape[0]*patch_shape[1])
-    """
-    patches  = extract_patches_2d(img, patch_shape)
-    patches = patches.reshape(patches.shape[0], -1)
-    #patches -= np.mean(patches, axis=0)
-    #patches /= np.std(patches, axis=0)
-    return patches
-    
 def subsampling_op(kspace, mask):
     """ Return the samples from the Cartesian kspace after undersampling
     with the mask
@@ -85,19 +199,19 @@ def subsampling_op(kspace, mask):
     Returns:
     -------
         samples=np.array of complex, column of size the number of samples
-        of the mask 
+        of the mask
     """
     row, col = np.where(mask==1)
     samples = kspace[row,col]
     return samples
-    
+
 def subsampling_adj_op(samples, mask):
-    """ Return the kspace corresponding to the samples and the 2d mask 
+    """ Return the kspace corresponding to the samples and the 2d mask
 
     Parameters:
     -----------
         samples: np.array of complex,  column of size the number of samples
-        of the mask 
+        of the mask
         mask: np.ndarray of int, {0,1} 2d matrix
     Returns:
     -------
@@ -107,7 +221,7 @@ def subsampling_adj_op(samples, mask):
     kspace = np.zeros(mask.shape).astype('complex128')
     kspace[row,col] = samples
     return kspace
-    
+
 def crop_sampling_scheme(sampling_scheme, img_shape):
     """Crop the sampling scheme from a input sampling scheme
     with an even wigth and hight
