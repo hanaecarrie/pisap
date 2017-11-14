@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import pickle
 from sklearn.feature_extraction.image import extract_patches_2d, reconstruct_from_patches_2d
 from sklearn.decomposition import MiniBatchDictionaryLearning
+import time
 
 def min_max_normalize(img):
     """ Center and normalize the given array.
@@ -112,7 +113,8 @@ def reconstruct_2d_images_from_flat_patched_images(flat_patches_list, dico, img_
         reconstructed_images.append(recons)
     return reconstructed_images
 
-def generate_dico(flat_patches, nb_atoms, alpha, n_iter):
+def generate_dico(flat_patches, nb_atoms, alpha, n_iter,
+                  fit_algorithm='lars',transform_algorithm='lars'):
     """Learn the dictionary from the real/imaginary part or the module/phase of images
     from the training set
     -----------
@@ -125,10 +127,14 @@ def generate_dico(flat_patches, nb_atoms, alpha, n_iter):
     Outputs:
         dico -- object
     """
-    dico=MiniBatchDictionaryLearning(n_components=nb_atoms, alpha=alpha, n_iter=n_iter)
+    dico=MiniBatchDictionaryLearning(n_components=nb_atoms, alpha=alpha,
+                                     n_iter=n_iter, fit_algorithm=fit_algorithm,
+                                     transform_algorithm=transform_algorithm,
+                                     n_jobs=-1)
     buffer = []
     index = 0
     print 'learning_atoms starting...'
+    t0 = time.clock()
     for _ in range(6):
         for i in range(len(flat_patches)):
             index += 1
@@ -140,7 +146,9 @@ def generate_dico(flat_patches, nb_atoms, alpha, n_iter):
                 dico.fit(patches)
                 buffer = []
     print 'learning_atoms ended!'
-    return(dico)
+    elapsed_time = time.time()-t0
+    print 'Dictionary learnt in ', elapsed_time
+    return(dico, elapsed_time)
     #RQ: atoms=dico.components_
 
 def plot_dico(dico, patch_size,title='Dictionary atoms'):

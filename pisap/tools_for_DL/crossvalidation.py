@@ -122,34 +122,32 @@ def generate_dicos_for_CV(CV_params, IMGS_params, DICOS_params):
     return('Generate and save dictionaries successfully ended!')
 
 
-def compare_dictionaries_SparseCode(CV_id, threshold=0):
+def compare_dictionaries_SparseCode(CV_path, threshold=0):
     """ Load the previousely learnt dictionaries
         Compute the sparse code for the validation_set
         Reconstruct the image from the sparse code
 
     Parameters:
     -----
-        CV_id: str, name of the crossvalidation folder in
-            '/home/hc253658/STAGE/Crossvalidations/'
+        CV_path: str, path to the crossvalidation folder
         threshold (default =0): thresholding level of the sparse coefficents
     Return:
     -------
         str, massage to indicate that the algorithm successfully ended
     """
-    path = '/home/hc253658/STAGE/Crossvalidations/'+CV_id
-    nb_cv_iter=len(os.listdir(path+'/'))
+    nb_cv_iter=len(os.listdir(CV_path+'/'))
 
     for i in range(1,nb_cv_iter+1):
-        dicos_list = os.listdir(path+'/iter_'+str(i)+'/dicos/')
-        validation_set=np.load(path+'/iter_'+str(i)+'/refs_val/refs_val.npy')
+        dicos_list = os.listdir(CV_path+'/iter_'+str(i)+'/dicos/')
+        validation_set=np.load(CV_path+'/iter_'+str(i)+'/refs_val/refs_val.npy')
         validation_set=validation_set.tolist()
         for val in validation_set:
             val=np.array(val)
         img_shape = np.array(validation_set[0]).shape
-        index_val=np.load(path+'/iter_'+str(i)+'/refs_val/index_val.npy')
+        index_val=np.load(CV_path+'/iter_'+str(i)+'/refs_val/index_val.npy')
 
         for dico in dicos_list:
-            dico_folder=path+'/iter_'+str(i)+'/dicos/'+dico
+            dico_folder=CV_path+'/iter_'+str(i)+'/dicos/'+dico
             dico_real = load_object(dico_folder+'/dico_real.pkl')
             dico_imag = load_object(dico_folder+'/dico_imag.pkl')
             patch_size=int(dico[6])
