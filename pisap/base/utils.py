@@ -2,7 +2,8 @@
 """
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.feature_extraction.image import extract_patches_2d
+import pickle
+from sklearn.feature_extraction.image import extract_patches_2d, reconstruct_from_patches_2d
 from sklearn.decomposition import MiniBatchDictionaryLearning
 
 def min_max_normalize(img):
@@ -84,6 +85,33 @@ def generate_flat_patches(images_training_set,patch_size, option='real'):
     print 'flat_patches ended...'
     return(flat_patches)
 
+def reconstruct_2d_images_from_flat_patched_images(flat_patches_list, dico, img_shape, threshold=1): #XXX the patches need to be square
+    """ Return the list of 2d reconstructed images from sparse code
+        (flat patches and dico)
+
+    Parameters:
+    -----------
+        flat_patches_list: list of 2d np.ndarray of size nb_patches*len_patches
+        dico: sklearn MiniBatchDictionaryLearning object
+        img_shape: tuple of int, image shape
+        threshold (default =1): thresholding level of the sparse coefficents
+    Returns:
+    -------
+        reconstructed_images: list of 2d np.ndarray of size w*h
+    """
+    reconstructed_images=[]
+    patch_size=int(np.sqrt(flat_patches_list[0].shape[1]))
+    for i in range(len(flat_patches_list)):
+        loadings = dico.transform(flat_patches_list[i])
+        norm_loadings = min_max_normalize(np.abs(loadings))
+        if threshold > 0:
+            loadings[norm_loadings < threshold] = 0
+        recons = np.dot(loadings, dico.components_)
+        recons = recons.reshape((recons.shape[0],patch_size,patch_size))
+        recons = reconstruct_from_patches_2d(recons,img_shape)
+        reconstructed_images.append(recons)
+    return reconstructed_images
+
 def generate_dico(flat_patches, nb_atoms, alpha, n_iter):
     """Learn the dictionary from the real/imaginary part or the module/phase of images
     from the training set
@@ -138,7 +166,6 @@ def plot_dico(dico, patch_size,title='Dictionary atoms'):
     plt.suptitle(title, fontsize=16)
     plt.subplots_adjust(0.08, 0.02, 0.92, 0.85, 0.08, 0.23)
     plt.show()
-    return()
 
 def plot_img(image):
     """Plot a given image
@@ -240,3 +267,31 @@ def crop_sampling_scheme(sampling_scheme, img_shape):
                             ss_size[0]/2-int((w+1)/2):ss_size[0]/2+int((w)/2),
                             ss_size[1]/2-int((h+1)/2):ss_size[1]/2+int((h)/2)]
     return sampling_scheme
+
+
+def save_object(obj, filename):
+    """Save object into pickle format
+    ---------
+    Inputs:
+    obj -- variable, name of the object in the current workspace
+    filename -- string, filename to save the object
+    ---------
+    Outputs:
+    nothing
+    """
+    with open(filename, 'wb') as output:
+        pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
+
+def load_object(filename):
+    """Load object saved into pickle format
+    ---------
+    Inputs:
+    filename -- string, path where the pickle object is saved
+    ---------
+    Outputs:
+    nothing
+    """
+    f = open(filename, 'rb')
+    loaded_obj = pickle.load(f)
+    f.close()
+    return(loaded_obj)

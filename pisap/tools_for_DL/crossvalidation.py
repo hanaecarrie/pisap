@@ -1,139 +1,173 @@
 """ Crossvalidation """
 
 # imports
-import numpy as np
+
+# basic imports
 import matplotlib.pyplot as plt
-import pisap
-from pisap.tools_for_DL.images import LisaImages,  LisaImages_forCV
-from pisap.tools_for_DL.dictionary import Dictionary
-from pisap.numerics.gradient import Grad2DAnalysis, Grad2DSynthesis
-from pisap.numerics.linear import Wavelet, DictionaryLearningWavelet, DictionaryLearningWavelet_complex
-from pisap.numerics.fourier import NFFT, FFT
-from pisap.numerics.cost import ssim, snr, psnr, nrmse
-from pisap.base.utils import subsampling_op, min_max_normalize
-from pisap.base.utils import convert_mask_to_locations, convert_locations_to_mask, crop_sampling_scheme
-from pisap.numerics.reconstruct import sparse_rec_condat_vu
-from pisap.base.utils import extract_patches_from_2d_images
-from pisap.numerics.gridsearch import grid_search
-import data_provider
-from sklearn.model_selection import train_test_split
+import scipy.fftpack as pfft
+import numpy as np
+import scipy.io
 import datetime
+import os
+import pickle
+from scipy.misc import imsave
+from random import shuffle
+import itertools
+#pisap imports
+import pisap
+from pisap.base.utils import min_max_normalize
+from pisap.base.utils import  generate_flat_patches, generate_dico, reconstruct_2d_images_from_flat_patched_images
+from pisap.base.utils import save_object, load_object
+# sklearn imports
+import sklearn
+from sklearn.feature_extraction.image import extract_patches_2d
+from sklearn.decomposition import MiniBatchDictionaryLearning
 
+def generate_dicos_for_CV(CV_params, IMGS_params, DICOS_params):
+    """ Learn dicos from the IMGS over a grid of parameters
+        Create folders and files to save the learnt dicos
 
-def crossvalidation_Lisa(crossval_iter, mu_grid, main_metric, nb_atoms_grid, patch_size_grid, alpha_grid):
-    """ Compute crossvalidation to set the dictionary hyperparameters.
-
-    Parameters
-    ----------
-    crossval_iter: int, the number of crossvalidation loops
-    pisap_parameters_gridsearch: dictionary of parameters with a list of mu values to test
-    main_metric (default='ssim'), can be 'psnr','snr','nrmse', reference metric 
-    nb_atoms_grid: number of atoms to test
-    patch_size_grid: patch size to test 
-    alpha_grid: dictionary regularisation parameter to test
-    Returns
+    Parameters:
+    -----------
+        CV_params: dictionary of parameters
+            example:    CV_params={'nb_cv_iter':1,
+                        'saving_path':'/home/hc253658/STAGE/Crossvalidations/CV_',
+                        'size_validation_set':2}
+        IMGS_params: dictionary of parameters
+            example:    IMGS_params={'imgs':imgs[:10],
+                        'img_shape':imgs[0].shape
+                        }
+        DICOS_params: dictionary of parameters
+            example:    DICOS_params={'param_grid':{'nb_atoms':[200,300],
+                                                    'patch_size':[2],
+                                                    'alpha':[1e-4]
+                                                     },
+                                      'n_iter_dico':10}
+    Return:
     -------
-    res: nd.nparray with column names: nb_atoms, patch_shape, alpha, mu, 
-        mean_ssim, mean_psnr, mean_snr, mean_nrmse
+        str, massage to indicate that the algorithm successfully ended
     """
-    #date=datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    #crossval_dir='CV'+date
-    #os.makedirs(crossval_dir)
-    res={'nb_atoms':[], 'patch_size':[], 'alpha':[], 'mu':[], 'mean_ssim':[],
-    'mean_psnr':[],'mean_snr':[], 'mean_nrmse':[]}
-    path="Lisa_complex_all/"
-    refA=[]
-    
-    metrics = {'ssim':{'metric':ssim,
-                      'mapping': {'x_new': 'test', 'y_new':None},
-                      'cst_kwargs':{'ref':refA},
-                      'early_stopping': True,
-                       },
-               'snr':{'metric':snr,
-                      'mapping': {'x_new': 'test', 'y_new':None},
-                      'cst_kwargs':{'ref':refA},
-                      'early_stopping': True,
-                       },
-               'psnr':{'metric':psnr,
-                      'mapping': {'x_new': 'test', 'y_new':None},
-                      'cst_kwargs':{'ref':refA},
-                      'early_stopping': True,
-                       }, 
-               'nrmse':{'metric':nrmse,
-                      'mapping': {'x_new': 'test', 'y_new':None},
-                      'cst_kwargs':{'ref':refA},
-                      'early_stopping': True,
-                       },           
-              }
-    sampling_scheme_path='sampling_schemes/scheme_256_R5_power1_fullCenter.mat'
-    for patch_size in patch_size_grid:
-        images=LisaImages_forCV(path, patch_size)
-        images.load_imgs()
-        # getting and plotting the sampling scheme
-        sampling_scheme=images.get_sampling_scheme(sampling_scheme_path)
-        sampling_scheme = sampling_scheme.astype('float')
-        samples = convert_mask_to_locations(sampling_scheme)
-        ft_obj = NFFT(samples_locations=samples, img_shape = images.img_shape)
-        gradient_param = {"ft_cls": {NFFT: {'samples_locations': samples, 'img_shape':images.img_shape}}}
-        for nb_atoms in nb_atoms_grid:
-            for alpha in alpha_grid:
-                res['nb_atoms']= nb_atoms
-                res['patch_size']= patch_size
-                res['alpha']= alpha
-                print(nb_atoms, patch_size, alpha)
-                
-                for i in range(crossval_iter):
-                    #os.makedirs(crossval_dir+'/iter_'+i)
-                    #os.makedirs(crossval_dir+'/iter_'+i+'/refs_train')
-                    #os.makedirs(crossval_dir+'/iter_'+i+'/refs_val')
-                    #os.makedirs(crossval_dir+'/iter_'+i+'/dicos')
-                    #os.makedirs(crossval_dir+'/iter_'+i+'/refs_val')
-                    refs_train=images.imgs[:len(images.imgs)-10]
-                    refs_val=images.imgs[len(images.imgs)-10:]
-                    #save ref
-                    images.extract_patches_and_flatten_imgs_trainingset(refs_train)
-                    dictionary_real=Dictionary(nb_atoms, alpha, 100)
-                    dictionary_imag=Dictionary(nb_atoms, alpha, 100)
-                    dictionary_real.learning_atoms(images,'real')
-                    dictionary_imag.learning_atoms(images,'imaginary')
-                    #np.save(crossval_dir+'/iter_'+i+'/dico_real.npy)
-                    func=sparse_rec_condat_vu
-                    for j in range(len(refs_val)):
-                        # np.save(crossval_dir+'/iter_'+i+'/refs_val/ref_val_'+j+'.npy', refs_val[j])
-                        refA=np.abs(refs_val[j])
-                        data_undersampled= ft_obj.op(np.abs(refs_val[j]))
-                        DLW_r=DictionaryLearningWavelet(dictionary_real.dico,dictionary_real.dico.components_,images.img_shape)
-                        DLW_i=DictionaryLearningWavelet(dictionary_imag.dico,dictionary_imag.dico.components_,images.img_shape)
-                        pisap_parameters_gridsearch={'data':data_undersampled,
-                            'gradient_cls':Grad2DAnalysis,
-                            'gradient_kwargs':gradient_param,
-                            'linear_cls':DictionaryLearningWavelet_complex,
-                            'linear_kwargs':{"DLW_r": DLW_r, "DLW_i": DLW_i},
-                            'max_nb_of_iter':100,
-                            'add_positivity': False,
-                            'mu':mu_grid,
-                            'metrics':metrics,
-                            'verbose':1,
-                             }
-                        Gridsearch=grid_search(func,pisap_parameters_gridsearch,verbose=1)
-                        #save pisap parameters
-        
-                        max_metric=[]
-                        nb_mu=len(pisap_parameters_gridsearch['mu'])
-                        for i in range(nb_mu):
-                             metric_values=Gridsearch[1][i][2][main_metric]['values']
-                        if main_metric=='nrmse':
-                            metric_val=min(metric_values)
-                        else:
-                            metric_val=max(metric_values)
-                        max_metric.append(metric_val)
-                    if main_metric=='nrmse':
-                        ind_max=max_metric.index(min(max_metric))
-                    else:
-                        ind_max=max_metric.index(max(max_metric))
-                    
-    return(res)
-                            
-        
+    #parameters
+    nb_cv_iter = CV_params['nb_cv_iter']
+    saving_path = CV_params['saving_path']
+    size_validation_set = CV_params['size_validation_set']
+    imgs = IMGS_params['imgs']
+    img_shape = IMGS_params['img_shape']
+    nb_atoms = DICOS_params['param_grid']['nb_atoms']
+    patch_size = DICOS_params['param_grid']['patch_size']
+    alpha = DICOS_params['param_grid']['alpha']
+    n_iter_dico = DICOS_params['n_iter_dico']
 
-            
+    # create folder
+    date=datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+    crossval_dir=saving_path+date
+    os.makedirs(crossval_dir)
+
+    list_args = [dict(zip(DICOS_params['param_grid'], x))
+                   for x in itertools.product(*DICOS_params['param_grid'].values())]
+
+
+    for i in range(1,nb_cv_iter+1):
+
+        #create subfolder iter, subsubfolder refs_train and dicos
+        title_iter=crossval_dir+'/iter_'+str(i)
+        os.makedirs(title_iter)
+        os.makedirs(title_iter+'/refs_train')
+        os.makedirs(title_iter+'/refs_val')
+        title_dico=title_iter+'/dicos'
+        os.makedirs(title_dico)
+
+        #provide shuffle training and test set with index
+        index=[i for i in range(len(imgs))]
+        shuffle(index)
+        index_train=index[size_validation_set:]
+        index_val=index[:size_validation_set]
+        training_set=[imgs[i] for i in index_train]
+        validation_set=[imgs[i] for i in index_val]
+
+        #save training_set
+        for i in range(len(training_set)):
+            np.save(title_iter+'/refs_train/ref_train_'+str(index_train[i])+'.npy', training_set[i])
+            imsave(title_iter+'/refs_train/ref_train_'+str(index_train[i])+'.png', \
+                   min_max_normalize(np.abs(training_set[i])))
+
+        #save validation_set
+        np.save(title_iter+'/refs_val/refs_val.npy', validation_set)
+        np.save(title_iter+'/refs_val/index_val.npy', index_val)
+
+        #testing different dictionary parameters
+        for args in list_args:
+
+            #print dico parameters
+            print(args)
+            for key,val in args.items():
+                exec(key + '=val')
+
+            #create subfolders for the dictionary, and the reconstructions
+            dico_folder=title_dico+'/patch='+str(patch_size)+'_atoms='+str(nb_atoms)+'_alpha='+str(alpha)
+            os.makedirs(dico_folder)
+            os.makedirs(dico_folder+'/reconstructions')
+
+            #preprocessing data, learning and saving dictionaries
+            flat_patches_real=generate_flat_patches(training_set,patch_size, 'real')
+            dico_real=generate_dico(flat_patches_real, nb_atoms, alpha, n_iter_dico)
+            flat_patches_imag=generate_flat_patches(training_set,patch_size, 'imag')
+            dico_imag=generate_dico(flat_patches_imag, nb_atoms, alpha, n_iter_dico)
+            np.save(dico_folder+'/dico_real.npy', dico_real.components_)
+            np.save(dico_folder+'/dico_imag.npy', dico_imag.components_)
+            ### save pickle dictionary
+            save_object(dico_real, dico_folder+'/dico_real.pkl')
+            save_object(dico_imag, dico_folder+'/dico_imag.pkl')
+
+    return('Generate and save dictionaries successfully ended!')
+
+
+def compare_dictionaries_SparseCode(CV_id, threshold=0):
+    """ Load the previousely learnt dictionaries
+        Compute the sparse code for the validation_set
+        Reconstruct the image from the sparse code
+
+    Parameters:
+    -----
+        CV_id: str, name of the crossvalidation folder in
+            '/home/hc253658/STAGE/Crossvalidations/'
+        threshold (default =0): thresholding level of the sparse coefficents
+    Return:
+    -------
+        str, massage to indicate that the algorithm successfully ended
+    """
+    path = '/home/hc253658/STAGE/Crossvalidations/'+CV_id
+    nb_cv_iter=len(os.listdir(path+'/'))
+
+    for i in range(1,nb_cv_iter+1):
+        dicos_list = os.listdir(path+'/iter_'+str(i)+'/dicos/')
+        validation_set=np.load(path+'/iter_'+str(i)+'/refs_val/refs_val.npy')
+        validation_set=validation_set.tolist()
+        for val in validation_set:
+            val=np.array(val)
+        img_shape = np.array(validation_set[0]).shape
+        index_val=np.load(path+'/iter_'+str(i)+'/refs_val/index_val.npy')
+
+        for dico in dicos_list:
+            dico_folder=path+'/iter_'+str(i)+'/dicos/'+dico
+            dico_real = load_object(dico_folder+'/dico_real.pkl')
+            dico_imag = load_object(dico_folder+'/dico_imag.pkl')
+            patch_size=int(dico[6])
+            flat_patches_real = generate_flat_patches(validation_set, patch_size, 'real')
+            flat_patches_imag = generate_flat_patches(validation_set, patch_size, 'imag')
+            recons_real = reconstruct_2d_images_from_flat_patched_images(flat_patches_real,dico_real,img_shape, threshold)
+            recons_imag = reconstruct_2d_images_from_flat_patched_images(flat_patches_imag,dico_imag, img_shape, threshold)
+            for j in range(len(validation_set)):
+                recons = recons_real[j]+1j*recons_imag[j]
+                #saving_reference
+                path_reconstruction = dico_folder+'/reconstructions/ind_'+str(index_val[j])
+                os.makedirs(path_reconstruction)
+                np.save(path_reconstruction+'/ref.npy', validation_set[j])
+                scipy.io.savemat(path_reconstruction+'/ref.mat',mdict={'ref': validation_set[j]})
+                imsave(path_reconstruction+'/ref.png', min_max_normalize(np.abs(validation_set[j])))
+                #reconstructed image
+                np.save(path_reconstruction+'/reconstruction.npy',recons)
+                scipy.io.savemat(path_reconstruction+'/reconstruction.mat',mdict={'reconstruction': recons})
+                imsave(path_reconstruction+'/reconstruction.png', min_max_normalize((np.abs(recons))))
+
+    return('compare_SparseCode successfully ended!')
