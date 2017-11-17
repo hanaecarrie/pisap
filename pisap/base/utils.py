@@ -7,6 +7,12 @@ from sklearn.feature_extraction.image import extract_patches_2d, reconstruct_fro
 from sklearn.decomposition import MiniBatchDictionaryLearning
 import time
 
+
+def timer(start,end):
+    hours, rem = divmod(end-start, 3600)
+    minutes, seconds = divmod(rem, 60)
+    return("{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds))
+
 def min_max_normalize(img):
     """ Center and normalize the given array.
     Parameters:
@@ -114,7 +120,7 @@ def reconstruct_2d_images_from_flat_patched_images(flat_patches_list, dico, img_
     return reconstructed_images
 
 def generate_dico(flat_patches, nb_atoms, alpha, n_iter,
-                  fit_algorithm='lars',transform_algorithm='lars'):
+                  fit_algorithm='lars',transform_algorithm='lars',n_jobs=-1):
     """Learn the dictionary from the real/imaginary part or the module/phase of images
     from the training set
     -----------
@@ -130,11 +136,11 @@ def generate_dico(flat_patches, nb_atoms, alpha, n_iter,
     dico=MiniBatchDictionaryLearning(n_components=nb_atoms, alpha=alpha,
                                      n_iter=n_iter, fit_algorithm=fit_algorithm,
                                      transform_algorithm=transform_algorithm,
-                                     n_jobs=-1)
+                                     n_jobs=n_jobs)
     buffer = []
     index = 0
     print 'learning_atoms starting...'
-    t0 = time.clock()
+    t_start = time.clock()
     for _ in range(6):
         for i in range(len(flat_patches)):
             index += 1
@@ -146,9 +152,10 @@ def generate_dico(flat_patches, nb_atoms, alpha, n_iter,
                 dico.fit(patches)
                 buffer = []
     print 'learning_atoms ended!'
-    elapsed_time = time.time()-t0
-    print 'Dictionary learnt in ', elapsed_time
-    return(dico, elapsed_time)
+    t_end = time.clock()
+    elapsed_time=timer(t_start,t_end)
+    print 'Dictionary learnt in ', elapsed_time, 'seconds'
+    return(dico)
     #RQ: atoms=dico.components_
 
 def plot_dico(dico, patch_size,title='Dictionary atoms'):
