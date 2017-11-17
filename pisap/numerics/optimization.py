@@ -47,7 +47,9 @@ class FISTA(Observable):
             observer = MetricObserver(name, dic['metric'],
                                       dic['mapping'],
                                       dic['cst_kwargs'],
-                                      dic['early_stopping'])
+                                      dic['early_stopping'],
+                                      dic['wind'],
+                                      dic['eps'])
             self.add_observer("cv_metrics", observer)
 
     def update(self):
@@ -168,7 +170,9 @@ class CondatVu(Observable):
             observer = MetricObserver(name, dic['metric'],
                                       dic['mapping'],
                                       dic['cst_kwargs'],
-                                      dic['early_stopping'])
+                                      dic['early_stopping'],
+                                      dic['wind'],
+                                      dic['eps'])
             self.add_observer("cv_metrics", observer)
 
     def update(self):

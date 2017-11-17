@@ -170,17 +170,21 @@ def sparse_rec_condat_vu(
 
     # by default add the lasso cost metric
     lasso = AnalysisCost(data, grad_op, linear_op, mu)
-    lasso_cost = {'lasso':{'metric':lasso,
+    lasso_cost = {'cost function':{'metric':lasso,
                            'mapping': {'x_new': 'x', 'y_new':None},
                            'cst_kwargs':{},
-                           'early_stopping': False}}
+                           'early_stopping': False,
+                           'wind':6,
+                           'eps':1.0e-3}}
     metrics.update(lasso_cost)
     # by default add the dual-gap cost metric
     dual_gap = DualGapCost(linear_op)
     dual_gap_cost = {'dual_gap':{'metric':dual_gap,
                                  'mapping': {'x_new': 'x', 'y_new':'y'},
                                  'cst_kwargs':{},
-                                 'early_stopping': False}}
+                                 'early_stopping': False,
+                                 'wind':6,
+                                 'eps':1.0e-3}}
     metrics.update(dual_gap_cost)
 
     # Define the Condat-Vu optimization method
@@ -299,10 +303,12 @@ def sparse_rec_fista(
 
     # by default add the lasso cost metric
     lasso = SynthesisCost(data, grad_op, mu)
-    lasso_cost = {'lasso': {'metric':lasso,
+    lasso_cost = {'cost function': {'metric':lasso,
                             'mapping': {'x_new': None, 'y_new':'x'},
                             'cst_kwargs':{},
-                            'early_stopping': False}}
+                            'early_stopping': False,
+                            'wind':6,
+                            'eps':1.0e-3}}
     metrics.update(lasso_cost)
 
     opt = FISTA(x=alpha, grad=grad_op, prox=prox_op,
