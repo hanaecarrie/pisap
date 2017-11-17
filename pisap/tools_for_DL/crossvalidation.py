@@ -169,3 +169,107 @@ def compare_dictionaries_SparseCode(CV_path, threshold=0):
                 imsave(path_reconstruction+'/reconstruction.png', min_max_normalize((np.abs(recons))))
 
     return('compare_SparseCode successfully ended!')
+
+
+def compare_dictionaries_retrospectiveCSreconstruction(CV_path, params):
+    """ Load the previousely learnt dictionaries
+        Make a pisap grid_search for retrospective CS reconstruction
+        Save results and indicate best results depending on ssim
+
+    Parameters:
+    -----
+        CV_path: str, path to the crossvalidation folder
+        threshold (default =0): thresholding level of the sparse coefficents
+    Return:
+    -------
+        str, massage to indicate that the algorithm successfully ended
+    """
+    #params to variables
+    sampling_scheme = params['sampling_scheme']
+    mu_grid = params['pisap_parameters_grid']['mu']
+    func = params['func']
+    pisap_parameters_grid = params['pisap_parameters_grid']
+    Fourier_option = params['Fourier_option']
+    ft_obj = params['ft_obj']
+    ref_metric = params['ref_metric']
+
+    nb_cv_iter=len(os.listdir(CV_path+'/'))
+
+    for i in range(1,nb_cv_iter+1):
+        dicos_list = os.listdir(CV_path+'/iter_'+str(i)+'/dicos/')
+        validation_set = np.load(CV_path+'/iter_'+str(i)+'/refs_val/refs_val.npy')
+        validation_set = validation_set.tolist()
+        kspaceCS=[]
+
+        for val in validation_set:
+            val=np.array(val)
+            if Fourier_option == FFT:
+                kspaceCS_i = np.fft.fft2(validation_set[i])*pfft.fftshift(sampling_scheme)
+            elif Fourier_option == NFFT:
+                kspaceCS_i = np.fft.fft2(validation_set[i])*(sampling_scheme)
+            kspaceCS_i=pfft.fftshift(kspaceCS_i)
+            kspaceCS.append(kspaceCS_i)
+        img_shape = np.array(validation_set[0]).shape
+        index_val=np.load(CV_path+'/iter_'+str(i)+'/refs_val/index_val.npy')
+
+        for dico in dicos_list:
+            dico_folder = CV_path+'/iter_'+str(i)+'/dicos/'+dico
+            dico_real = load_object(dico_folder+'/dico_real.pkl')
+            dico_imag = load_object(dico_folder+'/dico_imag.pkl')
+            patch_size = int(dico[6])
+            # patch_size < 10 !!!
+
+            DLW_r = DictionaryLearningWavelet(dico_real,dico_real.components_,img_shape)
+            DLW_i = DictionaryLearningWavelet(dico_imag,dico_imag.components_,img_shape)
+            pisap_parameters_grid['linear_kwargs']['DLW_r'] = DLW_r
+            pisap_parameters_grid['linear_kwargs']['DLW_i'] = DLW_i
+
+            for j in range(len(validation_set)):
+                path_reconstruction = dico_folder+'/reconstructions/ind_'+str(index_val[j])
+                os.makedirs(path_reconstruction)
+                ref=np.abs(validation_set[j])
+                pisap_parameters_grid['metrics']['ssim']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics']['snr']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics']['psnr']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics']['nrmse']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['data'] = ft_obj.op(validation_set[j])
+                data_undersampled = ft_obj.op(np.abs(validation_set[j]))
+                pisap_parameters_grid['data'] = data_undersampled
+                #computing gridsearch
+                list_kwargs, res = grid_search(func,pisap_parameters_grid,do_not_touch=[],n_jobs=len(mu_grid),verbose=1)
+                np.save(path_reconstruction+'/list_kwargs.pkl', np.array(list_kwargs))
+                np.save(path_reconstruction+'/res.pkl', np.array(res))
+                #choose best reconstruction, SSIM criteron
+                ssims = []
+                for i in range(len(mu_grid)):
+                    ssims.append(res[i][2][ref_metric]['values'][-1])
+                ind_max = ssims.index(max(ssims))
+
+                #reconstructed image
+                x = res[ind_max][0]
+                np.save(path_reconstruction+'/reconstruction.npy', x.data)
+                scipy.io.savemat(path_reconstruction+'/reconstruction.mat',mdict={'reconstruction': x.data})
+                imsave(path_reconstruction+'/reconstruction.png', min_max_normalize((np.abs(x.data))))
+                #dual_solution
+                y = res[ind_max][1]
+                np.save(path_reconstruction+'/dual_solution.npy', y.adj_op(y.coeff))
+                scipy.io.savemat(path_reconstruction+'/dual_solution.mat',mdict={'dual_solution': y.adj_op(y.coeff)})
+                imsave(path_reconstruction+'/dual_solution.png', min_max_normalize(np.abs(y.adj_op(y.coeff))))
+                #zero-order solution
+                np.save(path_reconstruction+'/zero_order_solution.npy', ft_obj.adj_op(data_undersampled))
+                scipy.io.savemat(path_reconstruction+'/zero_order_solution.mat',mdict={'zero_order_solution':ft_obj.adj_op(data_undersampled)})
+                imsave(path_reconstruction+'/zero_order_solution.png', min_max_normalize(np.abs(ft_obj.adj_op(data_undersampled))))
+                #save parameters
+                save_object(pisap_parameters_gridsearch, path_reconstruction+'/pisap_param_final_reconstruction.pkl')
+                save_object(saved_metric, path_reconstruction+'/saved_metrics_final_reconstruction.pkl',"w")
+                #save results
+                mu_on_border = False
+                if ind_max == 0 or ind_max == len(mu_grid):
+                    mu_on_border = True
+                results = {'mu':mu_grid[ind_max],
+                           'mu_on_border':mu_on_border,
+                           'early_stopping': res[ind_max][2][ref_metric]['is_early_stop'],
+                           #metrics
+                          }
+                save_object(control, path_reconstruction+'/control.pkl')
+    return('compare_CS reconstruction successfully ended!')
