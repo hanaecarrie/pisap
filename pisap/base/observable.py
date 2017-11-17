@@ -245,4 +245,4 @@ class MetricObserver:
         time = np.array(self.list_dates)
         time -= time[0]
         return {'time':time, 'index':self.list_iters,
-                'values':self.list_cv_values}
+                'values':self.list_cv_values, 'is_early_stop':self.converge_flag}
