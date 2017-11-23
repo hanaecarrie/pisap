@@ -18,12 +18,18 @@ import pisap
 from pisap.base.utils import min_max_normalize
 from pisap.base.utils import  generate_flat_patches, generate_dico, reconstruct_2d_images_from_flat_patched_images
 from pisap.base.utils import save_object, load_object
+from pisap.numerics.linear import Wavelet, DictionaryLearningWavelet, DictionaryLearningWavelet_complex
+from pisap.numerics.fourier import NFFT, FFT
+from pisap.numerics.reconstruct import sparse_rec_condat_vu
+from pisap.numerics.gridsearch import grid_search
+from pisap.numerics.gradient import Grad2DAnalysis, Grad2DSynthesis
+from pisap.numerics.cost import _preprocess_input
 # sklearn imports
 import sklearn
 from sklearn.feature_extraction.image import extract_patches_2d
 from sklearn.decomposition import MiniBatchDictionaryLearning
 
-def generate_dicos_for_CV(CV_params, IMGS_params, DICOS_params):
+def generate_dicos_forCV(CV_params, IMGS_params, DICOS_params):
     """ Learn dicos from the IMGS over a grid of parameters
         Create folders and files to save the learnt dicos
 
@@ -61,6 +67,7 @@ def generate_dicos_for_CV(CV_params, IMGS_params, DICOS_params):
     # create folder
     date=datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     crossval_dir=saving_path+date
+    print(crossval_dir)
     os.makedirs(crossval_dir)
 
     list_args = [dict(zip(DICOS_params['param_grid'], x))
@@ -119,10 +126,10 @@ def generate_dicos_for_CV(CV_params, IMGS_params, DICOS_params):
             save_object(dico_real, dico_folder+'/dico_real.pkl')
             save_object(dico_imag, dico_folder+'/dico_imag.pkl')
 
-    return('Generate and save dictionaries successfully ended!')
+    return('generate_dicos_forCV successfully ended!')
 
 
-def compare_dictionaries_SparseCode(CV_path, threshold=0):
+def compute_sparse_code_forCV(CV_path, threshold=0):
     """ Load the previousely learnt dictionaries
         Compute the sparse code for the validation_set
         Reconstruct the image from the sparse code
@@ -164,22 +171,30 @@ def compare_dictionaries_SparseCode(CV_path, threshold=0):
                 scipy.io.savemat(path_reconstruction+'/ref.mat',mdict={'ref': validation_set[j]})
                 imsave(path_reconstruction+'/ref.png', min_max_normalize(np.abs(validation_set[j])))
                 #reconstructed image
-                np.save(path_reconstruction+'/reconstruction.npy',recons)
-                scipy.io.savemat(path_reconstruction+'/reconstruction.mat',mdict={'reconstruction': recons})
-                imsave(path_reconstruction+'/reconstruction.png', min_max_normalize((np.abs(recons))))
+                np.save(path_reconstruction+'/sparse_code_recons.npy',recons)
+                scipy.io.savemat(path_reconstruction+'/sparse_code_recons.mat',mdict={'sparse_code_recons': recons})
+                imsave(path_reconstruction+'/sparse_code_recons.png', min_max_normalize((np.abs(recons))))
 
-    return('compare_SparseCode successfully ended!')
+    return('compute_sparse_code_forCV successfully ended!')
 
 
-def compare_dictionaries_retrospectiveCSreconstruction(CV_path, params):
+def compute_pisap_gridsearch_forCV(CV_path, params):
     """ Load the previousely learnt dictionaries
-        Make a pisap grid_search for retrospective CS reconstruction
-        Save results and indicate best results depending on ssim
+        Compute the sparse code for the validation_set
+        Reconstruct the image from the sparse code
 
     Parameters:
     -----
         CV_path: str, path to the crossvalidation folder
-        threshold (default =0): thresholding level of the sparse coefficents
+        params: dictionary of parameters
+            example:     {'sampling_scheme': 2d np.array if FFT,
+                          'Fourier_option': FFT,
+                          'ft_obj': FFT(samples_locations=samples,
+                                        img_shape = img_shape),
+                          'func':sparse_rec_condat_vu,
+                          'pisap_parameters_grid': pisap_parameters like
+                                                   for grid_search,
+                         }
     Return:
     -------
         str, massage to indicate that the algorithm successfully ended
@@ -191,11 +206,12 @@ def compare_dictionaries_retrospectiveCSreconstruction(CV_path, params):
     pisap_parameters_grid = params['pisap_parameters_grid']
     Fourier_option = params['Fourier_option']
     ft_obj = params['ft_obj']
-    ref_metric = params['ref_metric']
 
     nb_cv_iter=len(os.listdir(CV_path+'/'))
+    index = 0
 
     for i in range(1,nb_cv_iter+1):
+        print('nb_cv_iter', i)
         dicos_list = os.listdir(CV_path+'/iter_'+str(i)+'/dicos/')
         validation_set = np.load(CV_path+'/iter_'+str(i)+'/refs_val/refs_val.npy')
         validation_set = validation_set.tolist()
@@ -204,9 +220,9 @@ def compare_dictionaries_retrospectiveCSreconstruction(CV_path, params):
         for val in validation_set:
             val=np.array(val)
             if Fourier_option == FFT:
-                kspaceCS_i = np.fft.fft2(validation_set[i])*pfft.fftshift(sampling_scheme)
+                kspaceCS_i = np.fft.fft2(val)*pfft.fftshift(sampling_scheme)
             elif Fourier_option == NFFT:
-                kspaceCS_i = np.fft.fft2(validation_set[i])*(sampling_scheme)
+                kspaceCS_i = np.fft.fft2(val)*(sampling_scheme)
             kspaceCS_i=pfft.fftshift(kspaceCS_i)
             kspaceCS.append(kspaceCS_i)
         img_shape = np.array(validation_set[0]).shape
@@ -221,55 +237,162 @@ def compare_dictionaries_retrospectiveCSreconstruction(CV_path, params):
 
             DLW_r = DictionaryLearningWavelet(dico_real,dico_real.components_,img_shape)
             DLW_i = DictionaryLearningWavelet(dico_imag,dico_imag.components_,img_shape)
-            pisap_parameters_grid['linear_kwargs']['DLW_r'] = DLW_r
-            pisap_parameters_grid['linear_kwargs']['DLW_i'] = DLW_i
+
+            if index==0:
+                pisap_parameters_grid['linear_kwargs']['DLW_r'] = DLW_r
+                pisap_parameters_grid['linear_kwargs']['DLW_i'] = DLW_i
+            else:
+                pisap_parameters_grid['linear_kwargs'][0]['DLW_r'] = DLW_r
+                pisap_parameters_grid['linear_kwargs'][0]['DLW_i'] = DLW_i
 
             for j in range(len(validation_set)):
+                print('num_val', j)
                 path_reconstruction = dico_folder+'/reconstructions/ind_'+str(index_val[j])
                 os.makedirs(path_reconstruction)
                 ref=np.abs(validation_set[j])
-                pisap_parameters_grid['metrics']['ssim']['cst_kwargs']['ref'] = ref
-                pisap_parameters_grid['metrics']['snr']['cst_kwargs']['ref'] = ref
-                pisap_parameters_grid['metrics']['psnr']['cst_kwargs']['ref'] = ref
-                pisap_parameters_grid['metrics']['nrmse']['cst_kwargs']['ref'] = ref
+                np.save(path_reconstruction+'/ref.npy', validation_set[j])
+                scipy.io.savemat(path_reconstruction+'/ref.mat',mdict={'ref': validation_set[j]})
+                imsave(path_reconstruction+'/ref.png', min_max_normalize(np.abs(validation_set[j])))
+                if index==0:
+                    pisap_parameters_grid['metrics']['ssim']['cst_kwargs']['ref'] = ref
+                    pisap_parameters_grid['metrics']['snr']['cst_kwargs']['ref'] = ref
+                    pisap_parameters_grid['metrics']['psnr']['cst_kwargs']['ref'] = ref
+                    pisap_parameters_grid['metrics']['nrmse']['cst_kwargs']['ref'] = ref
+                else:
+                    pisap_parameters_grid['metrics'][0]['ssim']['cst_kwargs']['ref'] = ref
+                    pisap_parameters_grid['metrics'][0]['snr']['cst_kwargs']['ref'] = ref
+                    pisap_parameters_grid['metrics'][0]['psnr']['cst_kwargs']['ref'] = ref
+                    pisap_parameters_grid['metrics'][0]['nrmse']['cst_kwargs']['ref'] = ref
+                index = 1
                 pisap_parameters_grid['data'] = ft_obj.op(validation_set[j])
                 data_undersampled = ft_obj.op(np.abs(validation_set[j]))
                 pisap_parameters_grid['data'] = data_undersampled
-                #computing gridsearch
-                list_kwargs, res = grid_search(func,pisap_parameters_grid,do_not_touch=[],n_jobs=len(mu_grid),verbose=1)
-                np.save(path_reconstruction+'/list_kwargs.pkl', np.array(list_kwargs))
-                np.save(path_reconstruction+'/res.pkl', np.array(res))
-                #choose best reconstruction, SSIM criteron
-                ssims = []
-                for i in range(len(mu_grid)):
-                    ssims.append(res[i][2][ref_metric]['values'][-1])
-                ind_max = ssims.index(max(ssims))
-
-                #reconstructed image
-                x = res[ind_max][0]
-                np.save(path_reconstruction+'/reconstruction.npy', x.data)
-                scipy.io.savemat(path_reconstruction+'/reconstruction.mat',mdict={'reconstruction': x.data})
-                imsave(path_reconstruction+'/reconstruction.png', min_max_normalize((np.abs(x.data))))
-                #dual_solution
-                y = res[ind_max][1]
-                np.save(path_reconstruction+'/dual_solution.npy', y.adj_op(y.coeff))
-                scipy.io.savemat(path_reconstruction+'/dual_solution.mat',mdict={'dual_solution': y.adj_op(y.coeff)})
-                imsave(path_reconstruction+'/dual_solution.png', min_max_normalize(np.abs(y.adj_op(y.coeff))))
                 #zero-order solution
                 np.save(path_reconstruction+'/zero_order_solution.npy', ft_obj.adj_op(data_undersampled))
                 scipy.io.savemat(path_reconstruction+'/zero_order_solution.mat',mdict={'zero_order_solution':ft_obj.adj_op(data_undersampled)})
                 imsave(path_reconstruction+'/zero_order_solution.png', min_max_normalize(np.abs(ft_obj.adj_op(data_undersampled))))
-                #save parameters
-                save_object(pisap_parameters_gridsearch, path_reconstruction+'/pisap_param_final_reconstruction.pkl')
-                save_object(saved_metric, path_reconstruction+'/saved_metrics_final_reconstruction.pkl',"w")
-                #save results
+                #computing gridsearch
+                list_kwargs, res = grid_search(func,pisap_parameters_grid,do_not_touch=[],n_jobs=len(mu_grid),verbose=1)
+                save_object(list_kwargs, path_reconstruction+'/list_kwargs.pkl')
+                save_object(res, path_reconstruction+'/res.pkl')
+
+    return('compute_pisap_gridsearch_forCV successfully ended!')
+
+def compute_mask_forCV(CV_path):
+    """ Compute mask
+        Compute the sparse code for the validation_set
+        Reconstruct the image from the sparse code
+
+    Parameters:
+    -----
+        CV_path: str, path to the crossvalidation folder
+    Return:
+    -------
+        str, massage to indicate that the algorithm successfully ended
+    """
+    nb_cv_iter=len(os.listdir(CV_path+'/'))
+    for i in range(1,nb_cv_iter+1):
+        print('nb_cv_iter', i)
+        path = CV_path+'/iter_'+str(i)+'/dicos/'
+        dicos = os.listdir(path)
+        for k in range(len(dicos)):
+            dico_name = dicos[k]
+            path_dico = CV_path+'/iter_'+str(i)+'/dicos/'+dico_name+'/reconstructions/'
+            inds = os.listdir(path_dico)
+            for j in range(len(inds)):
+                num_ind = inds[j]
+                path_recons = path_dico+num_ind
+                ref = np.load(path_recons+'/ref.npy')
+                a,b, mask = _preprocess_input(ref,ref, mask='auto')
+                scipy.io.savemat(path_recons+'/mask.mat',mdict={'mask': mask})
+                np.save(path_recons+'/mask.npy',mask)
+                imsave(path_recons+'/mask.png',np.abs(mask))
+                f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+                ax1.imshow(abs(ref), cmap='gray')
+                ax2.imshow(mask, cmap='gray')
+    return('compute_mask successfully ended!')
+
+def create_imglist_from_gridsearchresults(CV_path):
+    """ create image list of reconstruction from the grid_search results
+        pkl object in the corresponding folder
+
+    Parameters:
+    -----
+        CV_path: str, path to the crossvalidation folder
+    Return:
+    -------
+        str, massage to indicate that the algorithm successfully ended
+    """
+    nb_cv_iter=len(os.listdir(CV_path+'/'))
+    for i in range(1,nb_cv_iter+1):
+        print('nb_cv_iter', i)
+        path = CV_path+'/iter_'+str(i)+'/dicos/'
+        dicos = os.listdir(path)
+        for k in range(len(dicos)):
+            dico_name = dicos[k]
+            path_dico = CV_path+'/iter_'+str(i)+'/dicos/'+dico_name+'/reconstructions/'
+            inds = os.listdir(path_dico)
+            for j in range(len(inds)):
+                num_ind = inds[j]
+                path_recons = path_dico+num_ind
+                res_gridsearch = load_object(path_recons+'/res.pkl')
+                imgs = []
+                for l in range(len(res_gridsearch)):
+                    imgs.append(res_gridsearch[l][0].data)
+                scipy.io.savemat(path_recons+'/imgs_gridsearch.mat',mdict={'imgs_gridsearch': imgs})
+    return('create_imglist_from_gridsearchresults successfully ended!')
+
+
+def save_best_pisap_recons(CV_path):
+    """ save best pisap reconstruction and dual solution
+
+    Parameters:
+    -----
+        CV_path: str, path to the crossvalidation folder
+    Return:
+    -------
+        str, massage to indicate that the algorithm successfully ended
+    """
+    nb_cv_iter=len(os.listdir(CV_path+'/'))
+    for i in range(1,nb_cv_iter+1):
+        print('nb_cv_iter', i)
+        path = CV_path+'/iter_'+str(i)+'/dicos/'
+        dicos = os.listdir(path)
+        for k in range(len(dicos)):
+            dico_name = dicos[k]
+            path_dico = CV_path+'/iter_'+str(i)+'/dicos/'+dico_name+'/reconstructions/'
+            inds = os.listdir(path_dico)
+            for j in range(len(inds)):
+                num_ind = inds[j]
+                path_recons = path_dico+num_ind
+                #reconstructed image
+                res = load_object(path_recons+'/res.pkl')
+                best_recons_pisap = scipy.io.loadmat(path_recons+'/best_recons_pisap.mat')
+                best_recons = best_recons_pisap['reconstruction']
+                ind_max = best_recons_pisap['ind_max'][0][0]
+                x = res[ind_max][0]
+                np.save(path_recons+'/pisap_recons.npy', x.data)
+                scipy.io.savemat(path_recons+'/pisap_recons.mat',mdict={'pisap_recons': x.data})
+                imsave(path_recons+'/pisap_recons.png', min_max_normalize((np.abs(x.data))))
+                #dual_solution
+                y = res[ind_max][1]
+                np.save(path_recons+'/dual_solution.npy', y.adj_op(y.coeff))
+                scipy.io.savemat(path_recons+'/dual_solution.mat',mdict={'dual_solution': y.adj_op(y.coeff)})
+                imsave(path_recons+'/dual_solution.png', min_max_normalize(np.abs(y.adj_op(y.coeff))))
+                # results synthesis
+                A = load_object(path_recons+'/list_kwargs.pkl')
+                mu_grid = []
+                for m in range(len(A)):
+                    mu_grid.append(A[m]['mu'])
                 mu_on_border = False
                 if ind_max == 0 or ind_max == len(mu_grid):
                     mu_on_border = True
-                results = {'mu':mu_grid[ind_max],
-                           'mu_on_border':mu_on_border,
-                           'early_stopping': res[ind_max][2][ref_metric]['is_early_stop'],
-                           #metrics
-                          }
-                save_object(control, path_reconstruction+'/control.pkl')
-    return('compare_CS reconstruction successfully ended!')
+                early_stopping = A[ind_max]['metrics']['ssim']['early_stopping']
+                synthesis_infos_res = {'mu': mu_grid[ind_max],
+                                   'mu_on_border': mu_on_border,
+                                   'early_stopping': early_stopping,
+                                   'elapsed_time':0,
+                                   'nb_iterations':0,
+                                  }
+                save_object(synthesis_infos_res, path_recons+'/synthesis_info_res.pkl')
+    return('save_best_pisap_recons successfully ended!')
