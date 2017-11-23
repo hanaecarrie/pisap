@@ -184,7 +184,7 @@ def plot_dico(dico, patch_size,title='Dictionary atoms'):
     plt.subplots_adjust(0.08, 0.02, 0.92, 0.85, 0.08, 0.23)
     plt.show()
 
-def plot_img(image):
+def plot_img(image, title = None):
     """Plot a given image
     -----------
     Inputs:
@@ -195,6 +195,7 @@ def plot_img(image):
     """
     plt.figure()
     plt.imshow(image, cmap='gray')
+    plt.title(title)
     plt.colorbar()
     plt.show()
 
