@@ -353,7 +353,7 @@ def save_best_pisap_recons(CV_path):
     -------
         str, massage to indicate that the algorithm successfully ended
     """
-    nb_cv_iter=len(os.listdir(CV_path+'/'))
+    nb_cv_iter=len(os.listdir(CV_path+'/'))-1
     for i in range(1,nb_cv_iter+1):
         print('nb_cv_iter', i)
         path = CV_path+'/iter_'+str(i)+'/dicos/'
