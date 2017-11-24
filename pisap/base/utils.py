@@ -3,10 +3,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
-import random
 from sklearn.feature_extraction.image import extract_patches_2d, reconstruct_from_patches_2d
 from sklearn.decomposition import MiniBatchDictionaryLearning
-from sklearn.utils import check_random_state, gen_batches
 import time
 
 
@@ -59,8 +57,8 @@ def extract_patches_from_2d_images(img, patch_shape): #XXX the patches need to b
     """
     patches  = extract_patches_2d(img, patch_shape)
     patches = patches.reshape(patches.shape[0], -1)
-    patches -= np.mean(patches, axis=0)
-    patches /= np.std(patches, axis=0)
+    #patches -= np.mean(patches, axis=0)
+    #patches /= np.std(patches, axis=0)
     return patches
 
 
@@ -121,8 +119,8 @@ def reconstruct_2d_images_from_flat_patched_images(flat_patches_list, dico, img_
         reconstructed_images.append(recons)
     return reconstructed_images
 
-def generate_dico(flat_patches, nb_atoms, alpha, n_iter, batch_size=10,
-                  fit_algorithm='lars',transform_algorithm='lars',n_jobs=1):
+def generate_dico(flat_patches, nb_atoms, alpha, n_iter,
+                  fit_algorithm='lars',transform_algorithm='lars',n_jobs=-1):
     """Learn the dictionary from the real/imaginary part or the module/phase of images
     from the training set
     -----------
@@ -141,18 +139,18 @@ def generate_dico(flat_patches, nb_atoms, alpha, n_iter, batch_size=10,
                                      n_jobs=n_jobs)
     buffer = []
     index = 0
-    rng = check_random_state(0)
     print 'learning_atoms starting...'
     t_start = time.clock()
     for _ in range(6):
-        for subject in flat_patches:
+        for i in range(len(flat_patches)):
             index += 1
-            patches = rng.shuffle(subject)
-            batches = gen_batches(len(subject), batch_size)
-            for batch in batches:
-                dico.partial_fit(patches[batch])
-                index +=1
-                print(str(index))#+'/'+str(6*len(flat_patches)*len(len)))
+            patches=flat_patches[i]
+            buffer.append(patches)
+            if index % 10 == 0:
+                print(str(index)+'/'+str(6*len(flat_patches)))
+                patches = np.concatenate(buffer, axis=0)
+                dico.fit(patches)
+                buffer = []
     print 'learning_atoms ended!'
     t_end = time.clock()
     elapsed_time=timer(t_start,t_end)
