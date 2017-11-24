@@ -34,7 +34,7 @@ class Identity():
 
         Parameters
         ----------
-        data : np.ndarray
+        data : numpy.ndarray
             Input data array
         **kwargs
             Arbitrary keyword arguments
@@ -49,7 +49,7 @@ class Identity():
 
         Parameters
         ----------
-        data : np.ndarray
+        data : numpy.ndarray
             Input data array
         Returns
         -------
@@ -76,7 +76,7 @@ class Wavelet(object):
             raise ValueError("Unknown tranformation '{0}'.".format(wavelet))
         self.transform = WaveletTransformBase.REGISTRY[wavelet](
             nb_scale=nb_scale, verbose=0)
-            
+
     def set_coeff(self, coeff):
         self.transform.analysis_data = coeff
 
@@ -152,7 +152,7 @@ class DictionaryLearningWavelet(object):
     Dictionay Learning procedure.
     """
 
-    def __init__(self, dictionary, atoms, img_shape, type_decomposition="prodscalar"):
+    def __init__(self, img_shape, dictionary_r, dictionary_i=None):
         """ Initialize the Wavelet class.
 
         Parameters
@@ -169,15 +169,51 @@ class DictionaryLearningWavelet(object):
             done.
         """
         #raise NotImplemented("plugg DL: WIP status for now")  # XXX
-        self.dictionary = dictionary
-        self.atoms = atoms
-        self.type_decomposition = type_decomposition
+        self.dictionary_r = dictionary_r
+        self.is_complex = False
+        if dictionary_i is not None:
+            if  not(dictionary_r.components_.shape == dictionary_i.components_.shape):
+                raise ValueError(("Real and imaginary atoms should have the same"
+                                  " dimension, found {0} for real and {1} for"
+                                  " imaginary.").format(dictionary_r.components_.shape,
+                                                        dictionary_i.components_.shape))
+            self.is_complex = True
+            self.dictionary_i = dictionary_i
+        if numpy.sqrt(dictionary_r.components_.shape[1]) % 1 != 0:
+            raise ValueError("Patches should have iso-dimension.")
+        # self.atoms = atoms
+        patches_size = int(numpy.sqrt(dictionary_r.components_.shape[1]))
+        self.patches_shape = (patches_size, patches_size)
         self.img_shape = img_shape
-        self.coeff = [] #self.op(numpy.zeros(img_shape))
-        self.coeffs_shape = []
-    
+        # self.nb_patches = self.dictionary_r.components_.shape[0]
+        # self.coeff = [] #self.op(numpy.zeros(img_shape))
+        # self.coeffs_shape = []
+
     def set_coeff(self, coeff):
         self.coeff = coeff
+
+
+    def _op(self, dictionary, image): #XXX works for square patches only!
+        """ Operator.
+
+        This method returns the representation of the input data in the
+        learnt dictionary, that is to say the wavelet coefficients.
+
+        Parameters
+        ----------
+        data: ndarray
+            Input data array, a 2D image.
+
+        Returns
+        -------
+        coeffs: ndarray of floats, 2d matrix dim nb_patches*nb_components,
+                the wavelet coefficients.
+        """
+        patches = extract_patches_from_2d_images(image, self.patches_shape)
+        #self.coeffs = self.dictionary.transform(numpy.nan_to_num(patches))
+        # self.coeff = numpy.array(coeffs)
+        # return self.coeff
+        return dictionary.transform(numpy.nan_to_num(patches))
 
     def op(self, image): #XXX works for square patches only!
         """ Operator.
@@ -195,18 +231,15 @@ class DictionaryLearningWavelet(object):
         coeffs: ndarray of floats, 2d matrix dim nb_patches*nb_components,
                 the wavelet coefficients.
         """
-        coeffs = []
-        patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
-        patches_shape = (patches_size,patches_size)
-        patches = extract_patches_from_2d_images(image, patches_shape)
-        coeffs = self.dictionary.transform(numpy.nan_to_num(patches))
-        self.coeff = numpy.array(coeffs)
-        return self.coeff
+        coeffs_r = self._op(self.dictionary_r, numpy.real(image))
+        if self.is_complex:
+            return coeffs_r + 1j*self._op(self.dictionary_i, numpy.imag(image))
+        return coeffs_r
 
-    def adj_op(self, coeffs, dtype="array"): #XXX works for square patches only!
+    def _adj_op(self, coeffs, atoms, dtype="array"): #XXX works for square patches only!
         """ Adjoint operator.
 
-        This method returns the reconsructed image from the wavelet coefficients. 
+        This method returns the reconsructed image from the wavelet coefficients.
 
         Parameters
         ----------
@@ -222,12 +255,35 @@ class DictionaryLearningWavelet(object):
         -------
         image_r: ndarray, the reconstructed data.
         """
-        nb_patches = coeffs.shape[0]
-        patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
-        image = numpy.dot(coeffs, self.atoms)
-        image = image.reshape(nb_patches,patches_size, patches_size)
-        image = reconstruct_from_patches_2d(image, self.img_shape)
-        return image
+        #patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
+        image = numpy.dot(coeffs, atoms)
+        image = image.reshape(image.shape[0], *self.patches_shape)
+        return reconstruct_from_patches_2d(image, self.img_shape)
+
+    def adj_op(self, coeffs, dtype="array"): #XXX works for square patches only!
+        """ Adjoint operator.
+
+        This method returns the reconsructed image from the wavelet coefficients.
+
+        Parameters
+        ----------
+        coeffs: ndarray of floats, 2d matrix dim nb_patches*nb_components,
+                the wavelet coefficients.
+                WARNING: CHECK THE COEFF DIMENSIONS!!!
+                         the 'op' method returns the right shape of coeffs
+        dtype: str, default 'array'
+            if 'array' return the data as a ndarray, otherwise return a
+            pisap.Image.
+
+        Returns
+        -------
+        image_r: ndarray, the reconstructed data.
+        """
+        #patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
+        image_r = self._adj_op(numpy.real(coeffs), self.dictionary_r.components_, dtype)
+        if self.is_complex:
+            return image_r + 1j*self._adj_op(numpy.imag(coeffs), self.dictionary_i.components_, dtype)
+        return image_r
 
     def l2norm(self, data_shape):
         """ Compute the L2 norm.
@@ -254,94 +310,94 @@ class DictionaryLearningWavelet(object):
         return numpy.linalg.norm(data)
 
 
-class DictionaryLearningWavelet_complex(object):
-    """ This class defines the leaned wavelet transform operator based on a
-    Dictionay Learning procedure.
-    """
-    
-    def __init__(self,DLW_r,DLW_i):
-        """ Initialize the Wavelet class.
-
-        Parameters
-        ----------
-        dictonary: sklearn MiniBatchDictionaryLearning object
-            containing the 'transform' method
-        atoms: ndarray,
-            ndarray of floats, 2d matrix dim nb_patches*nb_components,
-            the learnt atoms
-        img_shape= tuple of int, shape of the image
-            (not necessarly a square image)
-        type_decomposition: str, (default='prodscalar')
-            should be ['prodscalar', 'convol'], specify how the decomposition is
-            done.
-        """
-        self.DLW_r=DLW_r
-        self.DLW_i=DLW_i
-        
-    def set_coeff(self, coeff):
-        self.coeff = coeff
-        
-    def op(self,image_complex):
-        """ Initialize the Wavelet class.
-
-        Parameters
-        ----------
-        dictonary: sklearn MiniBatchDictionaryLearning object
-            containing the 'transform' method
-        atoms: ndarray,
-            ndarray of floats, 2d matrix dim nb_patches*nb_components,
-            the learnt atoms
-        img_shape= tuple of int, shape of the image
-            (not necessarly a square image)
-        type_decomposition: str, (default='prodscalar')
-            should be ['prodscalar', 'convol'], specify how the decomposition is
-            done.
-        """
-        self.coeff=numpy.add(self.DLW_r.op(numpy.real(image_complex)),
-                        1j*self.DLW_i.op(numpy.imag(image_complex)))
-        return (self.coeff)
-    
-    def adj_op(self,coeff_complex):
-        """ Initialize the Wavelet class.
-
-        Parameters
-        ----------
-        dictonary: sklearn MiniBatchDictionaryLearning object
-            containing the 'transform' method
-        atoms: ndarray,
-            ndarray of floats, 2d matrix dim nb_patches*nb_components,
-            the learnt atoms
-        img_shape= tuple of int, shape of the image
-            (not necessarly a square image)
-        type_decomposition: str, (default='prodscalar')
-            should be ['prodscalar', 'convol'], specify how the decomposition is
-            done.
-        """
-        image=numpy.add(self.DLW_r.adj_op(numpy.real(coeff_complex)),
-                        1j*self.DLW_i.adj_op(numpy.imag(coeff_complex)))
-        return(image)
-        
-
-    def l2norm(self, data_shape):
-        """ Compute the L2 norm.
-
-        Parameters
-        ----------
-        data_shape: uplet
-            the data shape.
-        Returns
-        -------
-        norm: float
-            the L2 norm.
-        """
-        # Create fake data.
-        data_shape = numpy.asarray(data_shape)
-        data_shape += data_shape % 2
-        fake_data = numpy.zeros(data_shape)
-        fake_data[zip(data_shape / 2)] = 1
-
-        # Call mr_transform.
-        data = self.op(fake_data)
-
-        # Compute the L2 norm
-        return numpy.linalg.norm(data)
+# class DictionaryLearningWavelet_complex(object):
+#     """ This class defines the leaned wavelet transform operator based on a
+#     Dictionay Learning procedure.
+#     """
+#
+#     def __init__(self,DLW_r,DLW_i):
+#         """ Initialize the Wavelet class.
+#
+#         Parameters
+#         ----------
+#         dictonary: sklearn MiniBatchDictionaryLearning object
+#             containing the 'transform' method
+#         atoms: ndarray,
+#             ndarray of floats, 2d matrix dim nb_patches*nb_components,
+#             the learnt atoms
+#         img_shape= tuple of int, shape of the image
+#             (not necessarly a square image)
+#         type_decomposition: str, (default='prodscalar')
+#             should be ['prodscalar', 'convol'], specify how the decomposition is
+#             done.
+#         """
+#         self.DLW_r=DLW_r
+#         self.DLW_i=DLW_i
+#
+#     def set_coeff(self, coeff):
+#         self.coeff = coeff
+#
+#     def op(self,image_complex):
+#         """ Initialize the Wavelet class.
+#
+#         Parameters
+#         ----------
+#         dictonary: sklearn MiniBatchDictionaryLearning object
+#             containing the 'transform' method
+#         atoms: ndarray,
+#             ndarray of floats, 2d matrix dim nb_patches*nb_components,
+#             the learnt atoms
+#         img_shape= tuple of int, shape of the image
+#             (not necessarly a square image)
+#         type_decomposition: str, (default='prodscalar')
+#             should be ['prodscalar', 'convol'], specify how the decomposition is
+#             done.
+#         """
+#         self.coeff=numpy.add(self.DLW_r.op(numpy.real(image_complex)),
+#                         1j*self.DLW_i.op(numpy.imag(image_complex)))
+#         return (self.coeff)
+#
+#     def adj_op(self,coeff_complex):
+#         """ Initialize the Wavelet class.
+#
+#         Parameters
+#         ----------
+#         dictonary: sklearn MiniBatchDictionaryLearning object
+#             containing the 'transform' method
+#         atoms: ndarray,
+#             ndarray of floats, 2d matrix dim nb_patches*nb_components,
+#             the learnt atoms
+#         img_shape= tuple of int, shape of the image
+#             (not necessarly a square image)
+#         type_decomposition: str, (default='prodscalar')
+#             should be ['prodscalar', 'convol'], specify how the decomposition is
+#             done.
+#         """
+#         image=numpy.add(self.DLW_r.adj_op(numpy.real(coeff_complex)),
+#                         1j*self.DLW_i.adj_op(numpy.imag(coeff_complex)))
+#         return(image)
+#
+#
+#     def l2norm(self, data_shape):
+#         """ Compute the L2 norm.
+#
+#         Parameters
+#         ----------
+#         data_shape: uplet
+#             the data shape.
+#         Returns
+#         -------
+#         norm: float
+#             the L2 norm.
+#         """
+#         # Create fake data.
+#         data_shape = numpy.asarray(data_shape)
+#         data_shape += data_shape % 2
+#         fake_data = numpy.zeros(data_shape)
+#         fake_data[zip(data_shape / 2)] = 1
+#
+#         # Call mr_transform.
+#         data = self.op(fake_data)
+#
+#         # Compute the L2 norm
+#         return numpy.linalg.norm(data)
