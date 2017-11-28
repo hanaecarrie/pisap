@@ -38,6 +38,7 @@ class Identity():
             Input data array
         **kwargs
             Arbitrary keyword arguments
+
         Returns
         -------
         np.ndarray input data
@@ -51,6 +52,7 @@ class Identity():
         ----------
         data : numpy.ndarray
             Input data array
+
         Returns
         -------
         np.ndarray input data
@@ -78,6 +80,15 @@ class Wavelet(object):
             nb_scale=nb_scale, verbose=0)
 
     def set_coeff(self, coeff):
+        """ Set coefficients.
+
+        Method sets coefficients. Method used in reconstruction algorithms.
+
+        Parameters
+        ----------
+        coeff: ndarray
+            The wavelet coefficients.
+        """
         self.transform.analysis_data = coeff
 
     def op(self, data):
@@ -129,6 +140,7 @@ class Wavelet(object):
         ----------
         data_shape: uplet
             the data shape.
+
         Returns
         -------
         norm: float
@@ -157,16 +169,13 @@ class DictionaryLearningWavelet(object):
 
         Parameters
         ----------
-        dictonary: sklearn MiniBatchDictionaryLearning object
-            containing the 'transform' method
-        atoms: ndarray,
-            ndarray of floats, 2d matrix dim nb_patches*nb_components,
-            the learnt atoms
-        img_shape= tuple of int, shape of the image
+        img_shape: tuple of int, shape of the image
             (not necessarly a square image)
-        type_decomposition: str, (default='prodscalar')
-            should be ['prodscalar', 'convol'], specify how the decomposition is
-            done.
+        dictonary_r: sklearn MiniBatchDictionaryLearning object
+            containing the 'transform' method
+        dictonary_i: (default=None)
+            sklearn MiniBatchDictionaryLearning object if images are complex-valued
+            None if images are real-valued
         """
         #raise NotImplemented("plugg DL: WIP status for now")  # XXX
         self.dictionary_r = dictionary_r
@@ -190,18 +199,29 @@ class DictionaryLearningWavelet(object):
         # self.coeffs_shape = []
 
     def set_coeff(self, coeff):
+        """ Set coefficients.
+
+        Method sets coefficients. Method used in reconstruction algorithms.
+
+        Parameters
+        ----------
+        coeff: ndarray
+            The wavelet coefficients.
+        """
         self.coeff = coeff
 
 
     def _op(self, dictionary, image): #XXX works for square patches only!
-        """ Operator.
+        """ Private operator for real-valued images and dictionaries.
 
         This method returns the representation of the input data in the
         learnt dictionary, that is to say the wavelet coefficients.
 
         Parameters
         ----------
-        data: ndarray
+        dictionary: sklearn MiniBatchDictionaryLearning object
+            containing the 'transform' method
+        image: ndarray
             Input data array, a 2D image.
 
         Returns
@@ -223,13 +243,13 @@ class DictionaryLearningWavelet(object):
 
         Parameters
         ----------
-        data: ndarray
+        image: ndarray
             Input data array, a 2D image.
 
         Returns
         -------
-        coeffs: ndarray of floats, 2d matrix dim nb_patches*nb_components,
-                the wavelet coefficients.
+        coeffs: ndarray of floats (is_complex==False) or complex (is_complex==True),
+                2d matrix dim nb_patches*nb_components, the wavelet coefficients.
         """
         coeffs_r = self._op(self.dictionary_r, numpy.real(image))
         if self.is_complex:
@@ -245,15 +265,15 @@ class DictionaryLearningWavelet(object):
         ----------
         coeffs: ndarray of floats, 2d matrix dim nb_patches*nb_components,
                 the wavelet coefficients.
-                WARNING: CHECK THE COEFF DIMENSIONS!!!
-                         the 'op' method returns the right shape of coeffs
+        atoms: ndarray of floats, 2d matrix dim nb_components*nb_pixels_per_patch,
+                the dictionary components.
         dtype: str, default 'array'
             if 'array' return the data as a ndarray, otherwise return a
             pisap.Image.
 
         Returns
         -------
-        image_r: ndarray, the reconstructed data.
+        ndarray, the reconstructed data.
         """
         #patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
         image = numpy.dot(coeffs, atoms)
@@ -269,15 +289,13 @@ class DictionaryLearningWavelet(object):
         ----------
         coeffs: ndarray of floats, 2d matrix dim nb_patches*nb_components,
                 the wavelet coefficients.
-                WARNING: CHECK THE COEFF DIMENSIONS!!!
-                         the 'op' method returns the right shape of coeffs
         dtype: str, default 'array'
             if 'array' return the data as a ndarray, otherwise return a
             pisap.Image.
 
         Returns
         -------
-        image_r: ndarray, the reconstructed data.
+        ndarray, the reconstructed data.
         """
         #patches_size = int(numpy.sqrt(self.atoms.shape[1])) #because square patches
         image_r = self._adj_op(numpy.real(coeffs), self.dictionary_r.components_, dtype)
@@ -292,6 +310,7 @@ class DictionaryLearningWavelet(object):
         ----------
         data_shape: uplet
             the data shape.
+
         Returns
         -------
         norm: float
