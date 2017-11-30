@@ -13,12 +13,13 @@ import pickle
 from scipy.misc import imsave
 from random import shuffle
 import itertools
+import random
 #pisap imports
 import pisap
 from pisap.base.utils import min_max_normalize
 from pisap.base.utils import  generate_flat_patches, generate_dico, reconstruct_2d_images_from_flat_patched_images
 from pisap.base.utils import save_object, load_object
-from pisap.numerics.linear import Wavelet, DictionaryLearningWavelet, DictionaryLearningWavelet_complex
+from pisap.numerics.linear import Wavelet, DictionaryLearningWavelet
 from pisap.numerics.fourier import NFFT, FFT
 from pisap.numerics.reconstruct import sparse_rec_condat_vu
 from pisap.numerics.gridsearch import grid_search
@@ -29,49 +30,42 @@ import sklearn
 from sklearn.feature_extraction.image import extract_patches_2d
 from sklearn.decomposition import MiniBatchDictionaryLearning
 
-def generate_dicos_forCV(CV_params, IMGS_params, DICOS_params):
+def generate_dicos_forCV(nb_cv_iter,saving_path, size_training_set_per_subject,
+                         size_validation_set, imgs, img_shape, param_grid,
+                         n_iter_dico, batch_size, fit_algorithm = 'lars',
+                         transform_algorithm = 'lars'):
     """ Learn dicos from the IMGS over a grid of parameters
-        Create folders and files to save the learnt dicos
+        Create folders and files to save the learnt dicos.
 
-    Parameters:
-    -----------
-        CV_params: dictionary of parameters
-            example:    CV_params={'nb_cv_iter':1,
-                        'saving_path':'/home/hc253658/STAGE/Crossvalidations/CV_',
-                        'size_validation_set':2}
-        IMGS_params: dictionary of parameters
-            example:    IMGS_params={'imgs':imgs[:10],
-                        'img_shape':imgs[0].shape
-                        }
-        DICOS_params: dictionary of parameters
-            example:    DICOS_params={'param_grid':{'nb_atoms':[200,300],
-                                                    'patch_size':[2],
-                                                    'alpha':[1e-4]
-                                                     },
-                                      'n_iter_dico':10}
-    Return:
+    Parameters
+    ----------
+    nb_cv_iter: int, number of iterations of the crossvalidation.
+    saving_path: str, path to save the results
+    size_training_set_per_subject: int, number of images per suy
+    size_validation_set: int
+    param_grid: dictionary{'nb_atoms':[200,400,600],
+                      'patch_size':[7,10],
+                      'alpha':[1e-2],
+                      }
+    n_iter_dico: int
+        'batch_size':5000,
+        'fit_algorithm':'lars',
+        'transform_algorithm':'lars',
+        'imgs': imgs_constrast_5,
+        'img_shape':imgs[0].shape,
+
+    Returns
     -------
-        str, massage to indicate that the algorithm successfully ended
+    str, massage to indicate that the algorithm successfully ended
     """
-    #parameters
-    nb_cv_iter = CV_params['nb_cv_iter']
-    saving_path = CV_params['saving_path']
-    size_validation_set = CV_params['size_validation_set']
-    imgs = IMGS_params['imgs']
-    img_shape = IMGS_params['img_shape']
-    nb_atoms = DICOS_params['param_grid']['nb_atoms']
-    patch_size = DICOS_params['param_grid']['patch_size']
-    alpha = DICOS_params['param_grid']['alpha']
-    n_iter_dico = DICOS_params['n_iter_dico']
-
     # create folder
     date=datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     crossval_dir=saving_path+date
     print(crossval_dir)
     os.makedirs(crossval_dir)
 
-    list_args = [dict(zip(DICOS_params['param_grid'], x))
-                   for x in itertools.product(*DICOS_params['param_grid'].values())]
+    list_args = [dict(zip(param_grid, x))
+                   for x in itertools.product(*param_grid.values())]
 
 
     for i in range(1,nb_cv_iter+1):
@@ -85,42 +79,58 @@ def generate_dicos_forCV(CV_params, IMGS_params, DICOS_params):
         os.makedirs(title_dico)
 
         #provide shuffle training and test set with index
-        index=[i for i in range(len(imgs))]
-        shuffle(index)
-        index_train=index[size_validation_set:]
-        index_val=index[:size_validation_set]
-        training_set=[imgs[i] for i in index_train]
-        validation_set=[imgs[i] for i in index_val]
-
-        #save training_set
-        for i in range(len(training_set)):
-            np.save(title_iter+'/refs_train/ref_train_'+str(index_train[i])+'.npy', training_set[i])
-            imsave(title_iter+'/refs_train/ref_train_'+str(index_train[i])+'.png', \
-                   min_max_normalize(np.abs(training_set[i])))
-
+        num_subject = int(random.sample(imgs.keys(),1)[0])
+        imgs_val = imgs[str(num_subject)]
+        index_val = [i for i in range(len(imgs_val))]
+        shuffle(index_val)
+        index_val = index_val[:size_validation_set]
+        validation_set = [imgs_val[i] for i in index_val]
         #save validation_set
         np.save(title_iter+'/refs_val/refs_val.npy', validation_set)
         np.save(title_iter+'/refs_val/index_val.npy', index_val)
+
+        training_set_aux = {key: value for key, value in imgs.iteritems() if key is not str(num_subject)}
+        training_set = {}
+        for key, value in training_set_aux.iteritems():
+            idx_train = [i for i in range(len(value))]
+            shuffle(idx_train)
+            idx_train = idx_train[:size_training_set_per_subject]
+            training_set[key] = [value[i] for i in idx_train]
+            for i in range(len(idx_train)):
+                np.save(title_iter+'/refs_train/ref_train_subj_'+key+'_slice_'\
+                +str(idx_train[i])+'.npy', value[i])
+                imsave(title_iter+'/refs_train/ref_train_subj_'+key+'_slice_'\
+                +str(idx_train[i])+'.png', min_max_normalize(np.abs(value[i])))
 
         #testing different dictionary parameters
         for args in list_args:
 
             #print dico parameters
             print(args)
-            for key,val in args.items():
-                exec(key + '=val')
-
+            alpha = args['alpha']
+            nb_atoms = args['nb_atoms']
+            patch_size = args['patch_size']
+            #for key,val in args.iteritems():
+                #print(key,val)
             #create subfolders for the dictionary, and the reconstructions
             dico_folder=title_dico+'/patch='+str(patch_size)+'_atoms='+str(nb_atoms)+'_alpha='+str(alpha)
             os.makedirs(dico_folder)
             os.makedirs(dico_folder+'/reconstructions')
 
             #preprocessing data, learning and saving dictionaries
-            flat_patches_real=generate_flat_patches(training_set,patch_size, 'real')
-            dico_real=generate_dico(flat_patches_real, nb_atoms, alpha, n_iter_dico)
-            flat_patches_imag=generate_flat_patches(training_set,patch_size, 'imag')
-            dico_imag=generate_dico(flat_patches_imag, nb_atoms, alpha, n_iter_dico)
+            flat_patches_real = generate_flat_patches(training_set,patch_size, 'real')
+            flat_patches_imag = generate_flat_patches(training_set,patch_size, 'imag')
+            dico_real = generate_dico(flat_patches_real, nb_atoms, alpha,
+                                      n_iter_dico,
+                                      fit_algorithm = fit_algorithm,
+                                      transform_algorithm = transform_algorithm,
+                                      batch_size=batch_size)
             np.save(dico_folder+'/dico_real.npy', dico_real.components_)
+            dico_imag = generate_dico(flat_patches_real, nb_atoms, alpha,
+                                      n_iter_dico,
+                                      fit_algorithm = fit_algorithm,
+                                      transform_algorithm = transform_algorithm,
+                                      batch_size=batch_size)
             np.save(dico_folder+'/dico_imag.npy', dico_imag.components_)
             ### save pickle dictionary
             save_object(dico_real, dico_folder+'/dico_real.pkl')

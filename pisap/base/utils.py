@@ -3,9 +3,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pickle
+from sklearn.utils import check_random_state, shuffle, gen_batches
 from sklearn.feature_extraction.image import extract_patches_2d, reconstruct_from_patches_2d
 from sklearn.decomposition import MiniBatchDictionaryLearning
 import time
+import itertools
 
 
 def timer(start,end):
@@ -67,7 +69,8 @@ def generate_flat_patches(images_training_set,patch_size, option='real'):
     from the training set
     -----------
     Inputs:
-        images_training_set -- list of 2d matrix of complex values
+        images_training_set -- dico of list of 2d matrix of complex values,
+            one list per subject
         patch_size -- int, width of square patches
         option -- 'real' (default), 'imag' real/imaginary part or module/phase,
             'complex'
@@ -76,21 +79,21 @@ def generate_flat_patches(images_training_set,patch_size, option='real'):
         flat_patches -- list of 1d array of flat patches (floats)
     """
     patch_shape = (patch_size, patch_size)
-    flat_patches=[]
-    print 'flat_patches starting...'
-    for i in range(len(images_training_set)):
-        if i%10 == 0:
-            print(i)
-        if option=='real':
-            img=np.real(images_training_set[i])
-        if option=='imag':
-            img=np.imag(images_training_set[i])
-        if option=='complex':
-            img=images_training_set[i]
-        patches_i=extract_patches_from_2d_images(min_max_normalize(img),patch_shape)
-        flat_patches.append(patches_i)
-    print 'flat_patches ended...'
-    return(flat_patches)
+    flat_patches = images_training_set.copy()
+    for nb_subject, imgs in flat_patches.iteritems():
+        flat_patches_sub = []
+        for img in imgs:
+            if option == 'real':
+                image = np.real(img)
+            if option == 'imag':
+                image = np.imag(img)
+            if option == 'complex':
+                image = img
+            patches = extract_patches_from_2d_images(min_max_normalize(image),patch_shape)
+            flat_patches_sub.append(patches)
+        # flat_patches[nb_subject] = flat_patches_sub
+        yield flat_patches_sub
+    # return(flat_patches)
 
 def reconstruct_2d_images_from_flat_patched_images(flat_patches_list, dico, img_shape, threshold=1): #XXX the patches need to be square
     """ Return the list of 2d reconstructed images from sparse code
@@ -119,42 +122,51 @@ def reconstruct_2d_images_from_flat_patched_images(flat_patches_list, dico, img_
         reconstructed_images.append(recons)
     return reconstructed_images
 
-def generate_dico(flat_patches, nb_atoms, alpha, n_iter,
-                  fit_algorithm='lars',transform_algorithm='lars',n_jobs=-1):
+def generate_dico(flat_patches_subjects, nb_atoms, alpha, n_iter,
+                  fit_algorithm='lars',transform_algorithm='lars', batch_size =100,
+                  n_jobs=-1):
     """Learn the dictionary from the real/imaginary part or the module/phase of images
     from the training set
     -----------
-    Inputs:
-        flat_patches -- list of 1d array of flat patches (floats)
+    Inputs
+        flat_patches -- dictionary of lists of 1d array of flat patches (floats)
+            a list per subject
         nb_atoms -- int, number of components of the dictionary
         alpha -- float, regulation term (default=1)
         n_iter -- int, number of iterations (default=100)
     -----------
-    Outputs:
+    Outputs
         dico -- object
     """
     dico=MiniBatchDictionaryLearning(n_components=nb_atoms, alpha=alpha,
                                      n_iter=n_iter, fit_algorithm=fit_algorithm,
                                      transform_algorithm=transform_algorithm,
-                                     n_jobs=n_jobs)
-    buffer = []
-    index = 0
+                                     n_jobs=n_jobs, verbose=2)
+    rng = check_random_state(0)
     print 'learning_atoms starting...'
-    t_start = time.clock()
-    for _ in range(6):
-        for i in range(len(flat_patches)):
-            index += 1
-            patches=flat_patches[i]
-            buffer.append(patches)
-            if index % 10 == 0:
-                print(str(index)+'/'+str(6*len(flat_patches)))
-                patches = np.concatenate(buffer, axis=0)
-                dico.fit(patches)
-                buffer = []
-    print 'learning_atoms ended!'
-    t_end = time.clock()
-    elapsed_time=timer(t_start,t_end)
-    print 'Dictionary learnt in ', elapsed_time, 'seconds'
+    # t0 = time.time()
+    for patches_subject in flat_patches_subjects:
+        patches = []
+        patches = list(itertools.chain(*patches_subject))
+        print(str(len(patches)))
+        print(np.shape(patches[0]))
+        rng.shuffle(patches)
+        lpb = int(len(patches)/batch_size)+1
+        batches = gen_batches(len(patches), batch_size)
+        for index, batch in enumerate(batches):
+            t0 = time.time()
+            # print('batch: '+str(index)+'/'+str(lpb))
+            #t_start_batch = time.time()*lpb*2*len(flat_patches_subjects)
+            dico.partial_fit(patches[batch][:1])
+            duration = time.time() - t0
+            print("Took: %.2f" % duration)
+            #t_end_batch = time.time()*lpb*2*len(flat_patches_subjects)
+            # if index + 1 == 1:
+            #print('estimated time :',timer(t_start_batch,t_end_batch))
+    # totalduration = time.time() - t0
+    # print 'learning_atoms ended!'
+    # elapsed_time=timer(t_start,t_end)
+    # print 'Dictionary learnt in ', elapsed_time, 'seconds'
     return(dico)
     #RQ: atoms=dico.components_
 

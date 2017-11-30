@@ -117,7 +117,8 @@ def grid_search(func, param_grid, do_not_touch, wrapper=None, n_jobs=1, verbose=
         print(("Running grid_search for {0} candidates"
                " on {1} jobs").format(len(list_kwargs), n_jobs_used))
 
-    res=Parallel(n_jobs=n_jobs, verbose=verbose)(
+    print(len(list_kwargs))
+    res = Parallel(n_jobs=n_jobs, verbose=verbose)(
                    delayed(wrapper)(func, **kwargs)
                    for kwargs in list_kwargs)
     return list_kwargs, res
