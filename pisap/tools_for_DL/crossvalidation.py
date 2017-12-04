@@ -135,22 +135,23 @@ def generate_dicos_forCV(nb_cv_iter, saving_path, nb_subjects,
         # create subfolder iter, subsubfolder refs_train and dicos
         title_iter = os.path.join(crossval_dir, 'iter_'+str(i))
         os.makedirs(title_iter)
+        os.makedirs(os.path.join(title_iter,'refs_train'))
+        os.makedirs(os.path.join(title_iter,'refs_val'))
         title_dico = os.path.join(title_iter, 'dicos')
         os.makedirs(title_dico)
 
-        # provide training set
-        num_subject = random.randint(1, nb_subjects)
-        if verbose:
-            print("[info] crossval iteration number: {0}".format(num_subject))
-        os.makedirs(os.path.join(title_iter,
-                                 'validation_subject_'+str(num_subject)))
-        save_object(num_subject, os.path.join(title_iter,
-                                 'validation_subject_'+str(num_subject),
-                                 'num_validation_subject'))
+        num_subject_val = 2 #random.randint(1, nb_subjects)
         training_set = imgs[:]
-        if verbose:
-            print("[info] index validation subject: {0}".format(num_subject))
-        training_set.pop(num_subject-1)
+        del training_set[num_subject_val-1]
+        np.save(os.path.join(title_iter,'refs_train','training_set.npy'),
+                             training_set)
+        validation_set = imgs[num_subject_val-1]
+        np.save(os.path.join(title_iter,'refs_val','validation_set.npy'),
+                             validation_set)
+        save_object(num_subject_val, os.path.join(title_iter,'refs_val',
+                    'num_subject_val.pkl'))
+
+        # provide training set
         for args in list_args:
             if verbose:
                 print("[info] dictionary parameters: {0}".format(args))
@@ -163,7 +164,7 @@ def generate_dicos_forCV(nb_cv_iter, saving_path, nb_subjects,
             save_object(args, os.path.join(dico_folder, 'dico_parameters.pkl'))
 
             # preprocessing data, learning and saving dictionaries
-            flat_patches_real = generate_flat_patches(training_set, patch_size,
+            flat_patches_real = generate_flat_patches(imgs, patch_size,
                                                       'real')
             dico_real = generate_dico(flat_patches_real, nb_atoms, alpha,
                                       n_iter_dico,
@@ -171,7 +172,7 @@ def generate_dicos_forCV(nb_cv_iter, saving_path, nb_subjects,
                                       transform_algorithm=transform_algorithm,
                                       batch_size=batch_size)
             save_object(dico_real, dico_folder+'/dico_real.pkl')
-            flat_patches_imag = generate_flat_patches(training_set, patch_size,
+            flat_patches_imag = generate_flat_patches(imgs, patch_size,
                                                       'imag')
             dico_imag = generate_dico(flat_patches_imag, nb_atoms, alpha,
                                       n_iter_dico,
@@ -183,7 +184,7 @@ def generate_dicos_forCV(nb_cv_iter, saving_path, nb_subjects,
         print('[info] generate_dicos_forCV successfully ended!')
 
 
-def compute_sparse_code_forCV(CV_path, threshold=0, verbose=False):
+def compute_sparse_code_forCV(imgs, CV_path, threshold=0, verbose=False):
     """ Load the previousely learnt dictionaries
         Compute the sparse code for the validation_set
         Reconstruct the image from the sparse code
@@ -201,23 +202,20 @@ def compute_sparse_code_forCV(CV_path, threshold=0, verbose=False):
     for i in range(1, nb_cv_iter + 1):
         dicos_list = os.listdir(os.path.join(CV_path, 'iter_'+str(i), 'dicos'))
         num_validation_subject = load_object(os.path.join(CV_path,
-                                 'iter_'+str(i),
-                                 'validation_subject_'+str(num_subject),
-                                 'num_validation_subject'))
-        validation_set = validation_set.tolist()
-        for val in validation_set:
-            val = np.array(val)
+                                 'iter_'+ str(i), 'validation_subject_id'))
+        validation_set = imgs[num_validation_subject-1]
         img_shape = np.array(validation_set[0]).shape
-        index_val = np.load(os.path.join(CV_path, 'iter_'+str(i), 'refs_val',
-                                         'index_val.npy'))
 
         for dico in dicos_list:
             dico_folder = os.path.join(CV_path, 'iter_'+str(i), 'dicos', dico)
+            os.makedirs(os.path.join(CV_path, 'iter_'+str(i), 'dicos', dico,
+                                     'reconstructions'))
             dico_real = load_object(os.path.join(dico_folder, 'dico_real.pkl'))
             dico_imag = load_object(os.path.join(dico_folder, 'dico_imag.pkl'))
-            list_args = load_object(os.path.join(dico_folder,
-                                                'dico_parameters.pkl'))
-            patch_size = list_args['patch_size']
+            #list_args = load_object(os.path.join(dico_folder,
+            #                                    'dico_parameters.pkl'))
+            #patch_size = list_args['patch_size']
+            patch_size = int(sqrt(dico_real.components_.shape[1]))
             flat_patches_real = generate_flat_patches(validation_set,
                                                       patch_size, 'real')
             flat_patches_imag = generate_flat_patches(validation_set,
@@ -231,10 +229,8 @@ def compute_sparse_code_forCV(CV_path, threshold=0, verbose=False):
                 recons = recons_real[j]+1j*recons_imag[j]
                 #saving_reference
                 path_reconstruction = os.path.join(dico_folder,
-                    'reconstructions', 'ind_'+str(index_val[j]))
+                    'reconstructions', 'ind_'+str(j))
                 os.makedirs(path_reconstruction)
-                np.save(os.path.join(path_reconstruction, 'ref.npy'),
-                        validation_set[j])
                 scipy.io.savemat(os.path.join(path_reconstruction, 'ref.mat'),
                                  mdict={'ref': validation_set[j]})
                 imsave(os.path.join(path_reconstruction, 'ref.png'),
@@ -250,7 +246,7 @@ def compute_sparse_code_forCV(CV_path, threshold=0, verbose=False):
         print('[info] compute_sparse_code_forCV successfully ended!')
 
 
-def compute_pisap_gridsearch_forCV(CV_path, sampling_scheme, mu_grid, func,
+def compute_pisap_gridsearch_forCV(CV_path, sampling_scheme, func,
                                    pisap_parameters_grid, Fourier_option,
                                    ft_obj, verbose=False):
     """ Load the previousely learnt dictionaries
@@ -274,19 +270,21 @@ def compute_pisap_gridsearch_forCV(CV_path, sampling_scheme, mu_grid, func,
         str, massage to indicate that the algorithm successfully ended
     """
     #params to variables
-    nb_cv_iter = len(os.listdir(os.path.join(CV_path)))
+    nb_cv_iter = len(os.listdir(CV_path))
     is_first_iter = True
 
     for i in range(1, nb_cv_iter + 1):
         if verbose:
             print("[info] crossval iteration: {0}".format(i))
         dicos_list = os.listdir(os.path.join(CV_path, 'iter_'+str(i), 'dicos'))
-        validation_set = np.load(os.path.join(CV_path, 'iter_'+str(i),
-                                              'refs_val', 'refs_val.npy'))
-        validation_set = validation_set.tolist()
+        num_validation_subject = load_object(os.path.join(CV_path,
+                                 'iter_'+ str(i), 'refs_val', 'num_subject_val.pkl'))
+        validation_set = np.load(os.path.join(CV_path,
+                                 'iter_'+ str(i), 'refs_val', 'validation_set.npy'))
+        print(validation_set.shape)
+        img_shape = np.array(validation_set[0]).shape
         kspaceCS = []
         for val in validation_set:
-            val = np.array(val)
             if Fourier_option == FFT:
                 kspaceCS_i = np.fft.fft2(val)*pfft.fftshift(sampling_scheme)
             elif Fourier_option == NFFT:
@@ -294,49 +292,44 @@ def compute_pisap_gridsearch_forCV(CV_path, sampling_scheme, mu_grid, func,
             kspaceCS_i = pfft.fftshift(kspaceCS_i)
             kspaceCS.append(kspaceCS_i)
         img_shape = np.array(validation_set[0]).shape
-        index_val = np.load(os.path.join(CV_path, 'iter_'+str(i),
-                                         'refs_val/index_val.npy'))
         for dico in dicos_list:
             dico_folder = os.path.join(CV_path, 'iter_'+str(i), 'dicos', dico)
+            recons_folder = os.makedirs(os.path.join(dico_folder, 'reconstructions'))
             dico_real = load_object(os.path.join(dico_folder, 'dico_real.pkl'))
             dico_imag = load_object(os.path.join(dico_folder, 'dico_imag.pkl'))
-            list_args = load_object(os.path.join(dico_folder,
-                                                'dico_parameters.pkl'))
-            patch_size = list_args['patch_size']
-            DLW_r = DictionaryLearningWavelet(dico_real, dico_real.components_,
-                                              img_shape)
-            DLW_i = DictionaryLearningWavelet(dico_imag, dico_imag.components_,
-                                              img_shape)
-            if is_first_iter: #TODO debug this
-                pisap_parameters_grid['linear_kwargs']['DLW_r'] = DLW_r
-                pisap_parameters_grid['linear_kwargs']['DLW_i'] = DLW_i
-            else:
-                pisap_parameters_grid['linear_kwargs'][0]['DLW_r'] = DLW_r
-                pisap_parameters_grid['linear_kwargs'][0]['DLW_i'] = DLW_i
+            #list_args = load_object(os.path.join(dico_folder,
+            #                                    'dico_parameters.pkl'))
+            # patch_size = list_args['patch_size']
+            patch_size = int(np.sqrt(dico_real.components_.shape[1]))
+            #if is_first_iter: #TODO debug this
+            pisap_parameters_grid['linear_kwargs']['dictionary_r'] = dico_real
+            pisap_parameters_grid['linear_kwargs']['dictionary_i'] = dico_imag
+            # else:
+            #     pisap_parameters_grid['linear_kwargs'][0]['dictionary_r'] = dico_real
+            #     pisap_parameters_grid['linear_kwargs'][0]['dictionary_i'] = dico_imag
 
             for j in range(len(validation_set)):
                 if verbose:
                     print("[info] index of current validation image:"
                           "{0}".format(j))
                 path_reconstruction = os.path.join(dico_folder,
-                                                   'reconstructions',
-                                                   'ind_'+str(index_val[j]))
+                                      'reconstructions', 'ind_'+str(j+1))
                 os.makedirs(path_reconstruction)
                 ref = np.abs(validation_set[j])
                 scipy.io.savemat(path_reconstruction+'/ref.mat',
                                  mdict={'ref': validation_set[j]})
                 imsave(os.path.join(path_reconstruction, 'ref.png'),
-                    min_max_normalize(np.abs(validation_set[j])))
-                if is_first_iter: #TODO debug this
-                    pisap_parameters_grid['metrics']['ssim']['cst_kwargs']['ref'] = ref
-                    pisap_parameters_grid['metrics']['snr']['cst_kwargs']['ref'] = ref
-                    pisap_parameters_grid['metrics']['psnr']['cst_kwargs']['ref'] = ref
-                    pisap_parameters_grid['metrics']['nrmse']['cst_kwargs']['ref'] = ref
-                else:
-                    pisap_parameters_grid['metrics'][0]['ssim']['cst_kwargs']['ref'] = ref
-                    pisap_parameters_grid['metrics'][0]['snr']['cst_kwargs']['ref'] = ref
-                    pisap_parameters_grid['metrics'][0]['psnr']['cst_kwargs']['ref'] = ref
-                    pisap_parameters_grid['metrics'][0]['nrmse']['cst_kwargs']['ref'] = ref
+                       min_max_normalize(np.abs(validation_set[j])))
+                #if is_first_iter: #TODO debug this
+                pisap_parameters_grid['metrics']['ssim']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics']['snr']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics']['psnr']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics']['nrmse']['cst_kwargs']['ref'] = ref
+                # else:
+                #     pisap_parameters_grid['metrics'][0]['ssim']['cst_kwargs']['ref'] = ref
+                #     pisap_parameters_grid['metrics'][0]['snr']['cst_kwargs']['ref'] = ref
+                #     pisap_parameters_grid['metrics'][0]['psnr']['cst_kwargs']['ref'] = ref
+                #     pisap_parameters_grid['metrics'][0]['nrmse']['cst_kwargs']['ref'] = ref
 
                 is_first_iter = False
                 data_undersampled = ft_obj.op((validation_set[j]))
@@ -353,6 +346,7 @@ def compute_pisap_gridsearch_forCV(CV_path, sampling_scheme, mu_grid, func,
                                                do_not_touch=[],
                                                n_jobs=-2,
                                                verbose=1)
+
                 save_object(list_kwargs, os.path.join(path_reconstruction,
                                                       'list_kwargs.pkl'))
                 save_object(res, os.path.join(path_reconstruction, 'res.pkl'))
