@@ -49,7 +49,8 @@ def _get_final_size(param_grid):
     return np.array([x for x in itertools.product(*tmp.values())]).sum()
 
 
-def grid_search(func, param_grid, do_not_touch, wrapper=None, n_jobs=1, verbose=0):
+def grid_search(func, param_grid, do_not_touch, wrapper=None, n_jobs=1,
+                verbose=0):
     """ Run `func` on the carthesian product of `param_grid`.
 
         Parameters:
@@ -116,8 +117,6 @@ def grid_search(func, param_grid, do_not_touch, wrapper=None, n_jobs=1, verbose=
             n_jobs_used = n_jobs
         print(("Running grid_search for {0} candidates"
                " on {1} jobs").format(len(list_kwargs), n_jobs_used))
-
-    print(len(list_kwargs))
     res = Parallel(n_jobs=n_jobs, verbose=verbose)(
                    delayed(wrapper)(func, **kwargs)
                    for kwargs in list_kwargs)

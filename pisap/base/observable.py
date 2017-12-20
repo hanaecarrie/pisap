@@ -243,6 +243,8 @@ class MetricObserver:
         iterations.
         """
         time = np.array(self.list_dates)
-        time -= time[0]
+        if len(time) >= 0:
+            time -= time[0]
         return {'time':time, 'index':self.list_iters,
-                'values':self.list_cv_values, 'is_early_stop':self.converge_flag}
+                'values':self.list_cv_values,
+                'is_early_stop':self.converge_flag}

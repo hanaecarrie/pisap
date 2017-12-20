@@ -8,8 +8,11 @@
 import copy
 import progressbar
 import numpy as np
+import time
+import signal
 from ..base.observable import Observable, MetricObserver
-
+from datetime import timedelta
+from datetime import datetime
 
 class FISTA(Observable):
     """ Fast Iterative Shrinkage-Thresholding Algorithm.
@@ -165,6 +168,7 @@ class CondatVu(Observable):
         self.extra_factor = 1.0
         self.extra_factor_update = extra_factor_update
         self.metric_call_period = metric_call_period
+        self.is_timeout = False
         Observable.__init__(self, ["cv_metrics"])
         for name, dic in metrics.iteritems():
             observer = MetricObserver(name, dic['metric'],
@@ -193,6 +197,7 @@ class CondatVu(Observable):
         np.copyto(self.x_old, self.x_new)
         self.y_old = copy.deepcopy(self.y_new)
 
+
     def params_update(self):
         """ Update the parameters of convergence.
         """
@@ -214,14 +219,27 @@ class CondatVu(Observable):
            maximum number of iterations.
         """
         bar = progressbar.ProgressBar()
+        wait_until = datetime.now() + timedelta(minutes=10)
         for i in bar(range(max_iter)):
+            if wait_until < datetime.now():
+                self.is_timeout = True
+                #print("-------> timeout")
+                #break
             self.update()
+            if wait_until < datetime.now():
+                self.is_timeout = True
+                #print("-------> timeout")
+                #break
             if i % self.metric_call_period == 0:
                 kwargs = {'x_new': self.x_new, 'y_new':self.y_new, 'idx':i}
                 self.notify_observers('cv_metrics', **kwargs)
                 if self.any_convergence_flag():
-                    print("-------> early-stopping done")
-                    break
+                    #print("-------> early-stopping done")
+                    #break
+            if wait_until < datetime.now():
+                self.is_timeout = True
+                #print("-------> timeout")
+                #break
         self.retrieve_outputs()
 
     def any_convergence_flag(self):

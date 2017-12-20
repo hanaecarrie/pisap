@@ -8,6 +8,7 @@
 # System import
 from __future__ import print_function
 import numpy as np
+import os
 import copy
 
 # Package import
@@ -143,6 +144,10 @@ def sparse_rec_condat_vu(
         eps = 1.0e-8
         # due to the convergence bound
         tau = 1.0 / (lipschitz_cst/2 + sigma * norm**2 + eps)
+        A = 1.0 / tau - sigma * norm ** 2
+        B = lipschitz_cst / 2.0
+        C = norm**2
+        print(A, B, C)
 
     convergence_test = (
         1.0 / tau - sigma * norm ** 2 >= lipschitz_cst / 2.0)
@@ -156,78 +161,81 @@ def sparse_rec_condat_vu(
         print(" - std: ", std_est)
         print(" - 1/tau - sigma||L||^2 >= beta/2: ", convergence_test)
         print("-" * 20)
+    if convergence_test == True:
+        # Define initial primal and dual solutions
+        primal = np.zeros(img_shape, dtype=np.complex)
+        dual = linear_op.op(primal)
+        dual[...] = 0.0
 
-    # Define initial primal and dual solutions
-    primal = np.zeros(img_shape, dtype=np.complex)
-    dual = linear_op.op(primal)
-    dual[...] = 0.0
-
-    # Define the proximity operator
-    if add_positivity:
-        prox_op = Positive()
-    else:
-        prox_op = Identity()
-
-    # by default add the lasso cost metric
-    lasso = AnalysisCost(data, grad_op, linear_op, mu)
-    lasso_cost = {'cost function':{'metric':lasso,
-                           'mapping': {'x_new': 'x', 'y_new':None},
-                           'cst_kwargs':{},
-                           'early_stopping': False,
-                           'wind':6,
-                           'eps':1.0e-3}}
-    metrics.update(lasso_cost)
-    # by default add the dual-gap cost metric
-    dual_gap = DualGapCost(linear_op)
-    dual_gap_cost = {'dual_gap':{'metric':dual_gap,
-                                 'mapping': {'x_new': 'x', 'y_new':'y'},
-                                 'cst_kwargs':{},
-                                 'early_stopping': False,
-                                 'wind':6,
-                                 'eps':1.0e-3}}
-    metrics.update(dual_gap_cost)
-
-    # Define the Condat-Vu optimization method
-    opt = CondatVu(x=primal, y=dual, grad=grad_op, prox=prox_op,
-                   prox_dual=prox_dual_op, linear=linear_op, sigma=sigma,
-                   tau=tau, rho=relaxation_factor, rho_update=None,
-                   sigma_update=None, tau_update=None, extra_factor=1.0,
-                   extra_factor_update=extra_factor_update,
-                   metric_call_period=metric_call_period, metrics=metrics)
-
-    # Perform the first reconstruction
-    opt.iterate(max_iter=max_nb_of_iter)
-
-    # Perform reconstruction with reweightings
-    # Loop through number of reweightings
-    for reweight_index in range(nb_of_reweights):
-
-        # Welcome message
-        if verbose > 0:
-            print("-" * 10)
-            print(" - Reweight: ", reweight_index + 1)
-            print("-" * 10)
-
-        # Generate the new weights following reweighting prescription
-        if std_est_method == "image":
-            reweight_op.reweight(linear_op.op(opt.x_new))
+        # Define the proximity operator
+        if add_positivity:
+            prox_op = Positive()
         else:
-            std_est = multiscale_sigma_mad(grad_op, linear_op)
-            reweight_op.reweight(std_est, linear_op.op(opt.x_new))
+            prox_op = Identity()
 
-        # Update the weights in the dual proximity operator
-        prox_dual_op.update_weights(reweight_op.weights)
+        # by default add the lasso cost metric
+        lasso = AnalysisCost(data, grad_op, linear_op, mu)
+        lasso_cost = {'cost function':{'metric':lasso,
+                               'mapping': {'x_new': 'x', 'y_new':None},
+                               'cst_kwargs':{},
+                               'early_stopping': False,
+                               'wind':6,
+                               'eps':1.0e-3}}
+        metrics.update(lasso_cost)
+        # by default add the dual-gap cost metric
+        dual_gap = DualGapCost(linear_op)
+        dual_gap_cost = {'dual_gap':{'metric':dual_gap,
+                                     'mapping': {'x_new': 'x', 'y_new':'y'},
+                                     'cst_kwargs':{},
+                                     'early_stopping': False,
+                                     'wind':6,
+                                     'eps':1.0e-3}}
+        metrics.update(dual_gap_cost)
 
-        # Update the weights in the cost function
-        cost_op.update_weights(reweight_op.weights)
+        # Define the Condat-Vu optimization method
+        opt = CondatVu(x=primal, y=dual, grad=grad_op, prox=prox_op,
+                       prox_dual=prox_dual_op, linear=linear_op, sigma=sigma,
+                       tau=tau, rho=relaxation_factor, rho_update=None,
+                       sigma_update=None, tau_update=None, extra_factor=1.0,
+                       extra_factor_update=extra_factor_update,
+                       metric_call_period=metric_call_period, metrics=metrics)
 
-        # Perform optimisation with new weights
+        # Perform the first reconstruction
         opt.iterate(max_iter=max_nb_of_iter)
 
-    linear_op.set_coeff(opt.y_final)
+        # Perform reconstruction with reweightings
+        # Loop through number of reweightings
+        for reweight_index in range(nb_of_reweights):
 
-    return Image(data=opt.x_final), linear_op, opt.metrics
-    #XXX linear_op.transform -> linear_op for DL
+            # Welcome message
+            if verbose > 0:
+                print("-" * 10)
+                print(" - Reweight: ", reweight_index + 1)
+                print("-" * 10)
+
+            # Generate the new weights following reweighting prescription
+            if std_est_method == "image":
+                reweight_op.reweight(linear_op.op(opt.x_new))
+            else:
+                std_est = multiscale_sigma_mad(grad_op, linear_op)
+                reweight_op.reweight(std_est, linear_op.op(opt.x_new))
+
+            # Update the weights in the dual proximity operator
+            prox_dual_op.update_weights(reweight_op.weights)
+
+            # Update the weights in the cost function
+            cost_op.update_weights(reweight_op.weights)
+
+            # Perform optimisation with new weights
+            opt.iterate(max_iter=max_nb_of_iter)
+
+        linear_op.set_coeff(opt.y_final)
+
+        return Image(data=opt.x_final), linear_op, opt.metrics, opt.is_timeout
+        #XXX linear_op.transform -> linear_op for DL
+    else:
+        message = 'did not pass convergence test'
+        return message
 
 
 def sparse_rec_fista(
