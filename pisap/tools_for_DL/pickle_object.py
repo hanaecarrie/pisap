@@ -5,7 +5,6 @@
 import pickle
 
 
-
 def save_object(obj, filename):
     """Save object into pickle format
     ---------
