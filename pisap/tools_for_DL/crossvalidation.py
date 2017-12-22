@@ -23,7 +23,8 @@ from joblib import Parallel, delayed
 
 # Package import
 from pisap.base.utils import min_max_normalize
-from pisap.tools_for_DL.pickle import load_object, save_object
+from pisap.tools_for_DL.pickle_object import load_object, save_object
+from pisap.tools_for_DL.patches import generate_flat_patches
 from pisap.base.utils import extract_patches_from_2d_images
 from pisap.base.utils import timer
 from pisap.numerics.linear import DictionaryLearningWavelet
@@ -33,8 +34,8 @@ from pisap.numerics.cost import _preprocess_input
 
 
 def generate_dico(flat_patches_subjects, nb_atoms=100, alpha=1, n_iter=1,
-                  fit_algorithm='lars', transform_algorithm='lars',
-                  batch_size=100, n_jobs=6, verbose=1):
+                  fit_algorithm='lars', transform_algorithm='lasso_lars',
+                  batch_size=100, n_jobs=1, verbose=1):
     """Learn the dictionary from the real/imaginary part or the module/phase of
     images from the training set
     Parameters
@@ -80,8 +81,8 @@ batch_size=100, n_jobs=6, verbose=1
 
 def generate_dicos_forCV(nb_cv_iter, saving_path, nb_subjects,
                          imgs, img_shape, param_grid, n_iter_dico, batch_size,
-                         fit_algorithm='lars', transform_algorithm='lars',
-                         verbose=False):
+                         fit_algorithm='lars',
+                         transform_algorithm='lasso_lars', verbose=False):
     """ Learn dicos from the IMGS over a grid of parameters
         Create folders and files to save the learnt dicos.
 
@@ -119,7 +120,8 @@ def generate_dicos_forCV(nb_cv_iter, saving_path, nb_subjects,
         os.makedirs(title_dico)
 
         num_subject_val = random.randint(1, nb_subjects)
-        print(num_subject_val)
+        print(
+            "idx subject kept for validation set: {}".format(num_subject_val))
         training_set = imgs[:]
         training_set = training_set.tolist()
         del training_set[num_subject_val-1]
@@ -199,19 +201,20 @@ def compute_sparse_code_forCV(CV_path, threshold=0, verbose=False):
             dico_imag = load_object(os.path.join(dico_folder, 'dico_imag.pkl'))
             patch_size = int(np.sqrt(dico_real.components_.shape[1]))
             t0 = time.time()
-            flat_patches_real = generate_flat_patches_2(validation_set,
+            flat_patches_real = generate_flat_patches(validation_set,
                                                       patch_size, 'real')
-            flat_patches_imag = generate_flat_patches_2(validation_set,
+            flat_patches_imag = generate_flat_patches(validation_set,
                                                       patch_size, 'imag')
             duration = time.time() -t0
             if verbose:
                 print('[info] Generate patches in: {0}'.format(duration))
 
-            for j in range(len(validation_set)):
+            for flat_patch in flat_patches_real:
+                idx = 0
                 if verbose:
-                    print('[info] Image number: {0}'.format(j))
+                    print('[info] Image number: {0}'.format(idx))
                 t1 = time.time()
-                loadings_r = dico_real.transform(flat_patches_real[j])
+                loadings_r = dico_real.transform(flat_patch)
                 norm_loadings_r = min_max_normalize(np.abs(loadings_r))
                 if threshold > 0:
                     loadings_r[norm_loadings_r < threshold] = 0
@@ -223,7 +226,7 @@ def compute_sparse_code_forCV(CV_path, threshold=0, verbose=False):
                 if verbose:
                     print('[info] Recons real in: {0}'.format(duration_recons_r))
                 t2 = time.time()
-                loadings_i = dico_imag.transform(flat_patches_imag[j])
+                loadings_i = dico_imag.transform(flat_patch)
                 norm_loadings_i = min_max_normalize(np.abs(loadings_i))
                 if threshold > 0:
                     loadings_i[norm_loadings_i < threshold] = 0
@@ -235,15 +238,15 @@ def compute_sparse_code_forCV(CV_path, threshold=0, verbose=False):
                 if verbose:
                     print('[info] Recons imag in: {0}'.format(duration_recons_i))
 
-                recons = recons_r[j]+1j*recons_i[j]
+                recons = recons_r[idx]+1j*recons_i[idx]
                 #saving_reference
                 path_reconstruction = os.path.join(dico_folder,
-                    'reconstructions', 'ind_'+str(j))
+                    'reconstructions', 'ind_'+str(idx))
                 os.makedirs(path_reconstruction)
                 scipy.io.savemat(os.path.join(path_reconstruction, 'ref.mat'),
-                                 mdict={'ref': validation_set[j]})
+                                 mdict={'ref': validation_set[idx]})
                 imsave(os.path.join(path_reconstruction, 'ref.png'),
-                       min_max_normalize(np.abs(validation_set[j])))
+                       min_max_normalize(np.abs(validation_set[idx])))
                 #reconstructed image
                 scipy.io.savemat(os.path.join(path_reconstruction,
                                  'sparse_code_recons.mat'),
@@ -251,13 +254,14 @@ def compute_sparse_code_forCV(CV_path, threshold=0, verbose=False):
                 imsave(os.path.join(path_reconstruction,
                                     'sparse_code_recons.png'),
                                     min_max_normalize((np.abs(recons))))
+                idx +=1
     if verbose:
         print('[info] compute_sparse_code_forCV successfully ended!')
 
 
 def compute_pisap_gridsearch_forCV(CV_path, sampling_scheme, func,
                                    pisap_parameters_grid, Fourier_option,
-                                   ft_obj, verbose=False):
+                                   ft_obj, n_jobs=1, verbose=False):
     """ Load the previousely learnt dictionaries
         Compute the sparse code for the validation_set
         Reconstruct the image from the sparse code
@@ -302,82 +306,72 @@ def compute_pisap_gridsearch_forCV(CV_path, sampling_scheme, func,
     img_shape = np.array(validation_set[0]).shape
     #index_val = os.listdir(os.listdir(CV_path, 'iter_'+str(i)))[1]
     #params_dico = load_object(os.path.join(CV_path, 'iter_'+str(i), 'dicos'))
-    Parallel(n_jobs=30, verbose=11)(
-    delayed(_run_grid_search)(dico, CV_path, i, is_first_iter,
-                              pisap_parameters_grid, validation_set,
-                              func, ft_obj, verbose)
-                                    for dico in dicos_list)
-
-
-def _run_grid_search(dico, CV_path, i, is_first_iter, pisap_parameters_grid,
-                     validation_set, func, ft_obj, verbose):
-    """
-    """
-    if verbose:
-        print('[info] Dictionary parameters: {0}'.format(dico))
-    dico_folder = os.path.join(CV_path, 'iter_'+str(i), 'dicos', dico)
-    dico_real = load_object(os.path.join(dico_folder, 'dico_real.pkl'))
-    dico_imag = load_object(os.path.join(dico_folder, 'dico_imag.pkl'))
-
-    #XXX by default the pickled dico launch -1 jobs to 'transform'
-    dico_real.n_jobs = 1
-    dico_imag.n_jobs = 1
-
-    #list_args = load_object(os.path.join(dico_folder,
-    #                                    'dico_parameters.pkl'))
-    # patch_size = list_args['patch_size']
-    patch_size = int(np.sqrt(dico_real.components_.shape[1]))
-    if is_first_iter: #TODO debug this
-        pisap_parameters_grid['linear_kwargs']['dictionary_r'] = dico_real
-        pisap_parameters_grid['linear_kwargs']['dictionary_i'] = dico_imag
-    else:
-        pisap_parameters_grid['linear_kwargs'][0]['dictionary_r'] = dico_real
-        pisap_parameters_grid['linear_kwargs'][0]['dictionary_i'] = dico_imag
-    if os.path.isdir(os.path.join(dico_folder, 'reconstructions'))==False:
-        os.makedirs(os.path.join(dico_folder, 'reconstructions'))
-    for j in range(len(validation_set)):
+    for dico in dicos_list:
         if verbose:
-            print("[info] index of current validation image:"
-                  "{0}".format(j))
-        path_reconstruction = os.path.join(dico_folder, 'reconstructions',
-                                           'ind_'+str(j+1))
-        if os.path.isdir(path_reconstruction)==False:
-            os.makedirs(path_reconstruction)
+            print('[info] Dictionary parameters: {0}'.format(dico))
+        dico_folder = os.path.join(CV_path, 'iter_'+str(i), 'dicos', dico)
+        dico_real = load_object(os.path.join(dico_folder, 'dico_real.pkl'))
+        dico_imag = load_object(os.path.join(dico_folder, 'dico_imag.pkl'))
 
-        ref = np.abs(validation_set[j])
-        scipy.io.savemat(path_reconstruction+'/ref.mat',
-                         mdict={'ref': validation_set[j]})
-        imsave(os.path.join(path_reconstruction, 'ref.png'),
-               min_max_normalize(np.abs(validation_set[j])))
+        #XXX by default the pickled dico launch -1 jobs to 'transform'
+        dico_real.n_jobs = 1
+        dico_imag.n_jobs = 1
+
+        #list_args = load_object(os.path.join(dico_folder,
+        #                                    'dico_parameters.pkl'))
+        # patch_size = list_args['patch_size']
+        patch_size = int(np.sqrt(dico_real.components_.shape[1]))
         if is_first_iter: #TODO debug this
-            pisap_parameters_grid['metrics']['ssim']['cst_kwargs']['ref'] = ref
-            pisap_parameters_grid['metrics']['snr']['cst_kwargs']['ref'] = ref
-            pisap_parameters_grid['metrics']['psnr']['cst_kwargs']['ref'] = ref
-            pisap_parameters_grid['metrics']['nrmse']['cst_kwargs']['ref'] = ref
+            pisap_parameters_grid['linear_kwargs']['dictionary_r'] = dico_real
+            pisap_parameters_grid['linear_kwargs']['dictionary_i'] = dico_imag
         else:
-            pisap_parameters_grid['metrics'][0]['ssim']['cst_kwargs']['ref'] = ref
-            pisap_parameters_grid['metrics'][0]['snr']['cst_kwargs']['ref'] = ref
-            pisap_parameters_grid['metrics'][0]['psnr']['cst_kwargs']['ref'] = ref
-            pisap_parameters_grid['metrics'][0]['nrmse']['cst_kwargs']['ref'] = ref
+            pisap_parameters_grid['linear_kwargs'][0]['dictionary_r'] = dico_real
+            pisap_parameters_grid['linear_kwargs'][0]['dictionary_i'] = dico_imag
+        if os.path.isdir(os.path.join(dico_folder, 'reconstructions'))==False:
+            os.makedirs(os.path.join(dico_folder, 'reconstructions'))
+        for j in range(len(validation_set)):
+            if verbose:
+                print("[info] index of current validation image:"
+                      "{0}".format(j))
+            path_reconstruction = os.path.join(dico_folder, 'reconstructions',
+                                               'ind_'+str(j+1))
+            if os.path.isdir(path_reconstruction)==False:
+                os.makedirs(path_reconstruction)
 
-        is_first_iter = False
-        data_undersampled = ft_obj.op((validation_set[j]))
-        pisap_parameters_grid['data'] = data_undersampled
-        # zero-order solution
-        scipy.io.savemat(os.path.join(path_reconstruction,
-            'zero_order_solution.mat'), mdict={'zero_order_solution':
-            ft_obj.adj_op(data_undersampled)})
-        imsave(os.path.join(
-            path_reconstruction, 'zero_order_solution.png'),
-            min_max_normalize(np.abs(ft_obj.adj_op(data_undersampled))))
-        # computing gridsearch
-        list_kwargs, res = grid_search(func, pisap_parameters_grid,
-                                       do_not_touch=[],
-                                       n_jobs=1,
-                                       verbose=11)
-        save_object(list_kwargs, os.path.join(path_reconstruction,
-                                              'list_kwargs.pkl'))
-        save_object(res, os.path.join(path_reconstruction, 'res.pkl'))
+            ref = np.abs(validation_set[j])
+            scipy.io.savemat(path_reconstruction+'/ref.mat',
+                             mdict={'ref': validation_set[j]})
+            imsave(os.path.join(path_reconstruction, 'ref.png'),
+                   min_max_normalize(np.abs(validation_set[j])))
+            if is_first_iter: #TODO debug this
+                pisap_parameters_grid['metrics']['ssim']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics']['snr']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics']['psnr']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics']['nrmse']['cst_kwargs']['ref'] = ref
+            else:
+                pisap_parameters_grid['metrics'][0]['ssim']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics'][0]['snr']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics'][0]['psnr']['cst_kwargs']['ref'] = ref
+                pisap_parameters_grid['metrics'][0]['nrmse']['cst_kwargs']['ref'] = ref
+
+            is_first_iter = False
+            data_undersampled = ft_obj.op((validation_set[j]))
+            pisap_parameters_grid['data'] = data_undersampled
+            # zero-order solution
+            scipy.io.savemat(os.path.join(path_reconstruction,
+                'zero_order_solution.mat'), mdict={'zero_order_solution':
+                ft_obj.adj_op(data_undersampled)})
+            imsave(os.path.join(
+                path_reconstruction, 'zero_order_solution.png'),
+                min_max_normalize(np.abs(ft_obj.adj_op(data_undersampled))))
+            # computing gridsearch
+            list_kwargs, res = grid_search(func, pisap_parameters_grid,
+                                           do_not_touch=[],
+                                           n_jobs=1,
+                                           verbose=11)
+            save_object(list_kwargs, os.path.join(path_reconstruction,
+                                                  'list_kwargs.pkl'))
+            save_object(res, os.path.join(path_reconstruction, 'res.pkl'))
     if verbose:
         print('[info] compute_pisap_gridsearch_forCV successfully ended!')
 
@@ -409,15 +403,15 @@ def compute_mask_forCV(CV_path, verbose=False):
             for j in range(len(inds)):
                 num_ind = inds[j]
                 path_recons = os.path.join(path_dico, num_ind)
-                ref = np.load(os.path.join(path_recons, 'ref.npy'))
+                ref = scipy.io.loadmat(os.path.join(path_recons, 'ref.mat'))
+                ref = ref['ref']
                 a, b, mask = _preprocess_input(ref, ref, mask='auto')
                 scipy.io.savemat(os.path.join(path_recons, 'mask.mat'),
                                  mdict={'mask': mask})
-                np.save(os.path.join(path_recons, 'mask.npy', mask))
                 imsave(os.path.join(path_recons, 'mask.png'), np.abs(mask))
-                f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
-                ax1.imshow(abs(ref), cmap='gray')
-                ax2.imshow(mask, cmap='gray')
+                # f, (ax1, ax2) = plt.subplots(1, 2, sharey=True)
+                # ax1.imshow(abs(ref), cmap='gray')
+                # ax2.imshow(mask, cmap='gray')
     if verbose:
         print('[info] compute_mask successfully ended!')
 
@@ -445,8 +439,9 @@ def create_imglist_from_gridsearchresults(CV_path, verbose=False):
             inds = os.listdir(path_dico)
             for j in range(len(inds)):
                 num_ind = inds[j]
-                path_recons = path_dico + num_ind
-                res_gridsearch = load_object(path_recons + '/res.pkl')
+                path_recons = os.path.join(path_dico, num_ind)
+                res_gridsearch = load_object(os.path.join(path_recons,
+                                             'res.pkl'))
                 imgs = []
                 for l in range(len(res_gridsearch)):
                     imgs.append(res_gridsearch[l][0].data)
@@ -458,7 +453,7 @@ def create_imglist_from_gridsearchresults(CV_path, verbose=False):
               'ended!')
 
 
-def save_best_pisap_recons(CV_path, verbose):
+def save_best_pisap_recons(CV_path, verbose=False):
     """ save best pisap reconstruction and dual solution
 
     Parameters:
@@ -481,7 +476,7 @@ def save_best_pisap_recons(CV_path, verbose):
             inds = os.listdir(path_dico)
             for j in range(len(inds)):
                 num_ind = inds[j]
-                path_recons = path_dico + num_ind
+                path_recons = os.path.join(path_dico, num_ind)
                 # reconstructed image
                 res = load_object(os.path.join(path_recons, 'res.pkl'))
                 best_recons_pisap = scipy.io.loadmat(os.path.join(path_recons,
