@@ -234,8 +234,8 @@ class CondatVu(Observable):
                 kwargs = {'x_new': self.x_new, 'y_new':self.y_new, 'idx':i}
                 self.notify_observers('cv_metrics', **kwargs)
                 if self.any_convergence_flag():
-                    #print("-------> early-stopping done")
-                    #break
+                    print("-------> early-stopping done")
+                    break
             if wait_until < datetime.now():
                 self.is_timeout = True
                 #print("-------> timeout")
